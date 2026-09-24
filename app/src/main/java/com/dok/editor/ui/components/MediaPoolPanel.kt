@@ -3,6 +3,7 @@ package com.dok.editor.ui.components
 import android.content.ClipData
 import android.net.Uri
 import android.view.View
+import coil.compose.AsyncImage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
