@@ -2,6 +2,7 @@ package com.dok.editor.render
 
 import android.content.Context
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Durable render queue. Job specifications are persisted independently from
@@ -13,6 +14,7 @@ class PersistentRenderQueue(
 ) {
     private val store = RenderQueueStore(context)
     private val queue = RenderQueue(scope)
+    val state: StateFlow<List<RenderJob>> = queue.state
 
     suspend fun restoreSpecs(): List<RenderJobSpec> = store.load()
 
