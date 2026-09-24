@@ -51,6 +51,13 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
     val effectLibrary = remember(context) { com.dok.editor.engine.effects.ExternalEffectLibrary(context) }
     val focus = remember { FocusRequester() }
 
+    val srtImportPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        uri?.let { viewModel.importSrtSubtitles(it) }
+    }
+    val srtExportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-subrip")) { uri: Uri? ->
+        uri?.let { viewModel.writeSrtToUri(it) }
+    }
+
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         uri?.let {
             try { context.contentResolver.takePersistableUriPermission(it, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Throwable) {}
@@ -130,7 +137,12 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                                     EditorPanel.MEDIA_POOL -> MediaPoolPanel(mediaAssets, viewModel::dispatch)
                                     EditorPanel.INSPECTOR, EditorPanel.COLOR -> InspectorPanel(viewModel.getSelectedClip(),viewModel::dispatch)
                                     EditorPanel.EFFECTS -> EffectsLibraryPanel(effectLibrary, viewModel::applyExternalEffectAsset, viewModel::insertExternalAudioEffect, viewModel::addExternalEffectAsset, viewModel::removeExternalEffectAsset)
-                                    EditorPanel.DELIVER -> DeliverPanel(preset,exportState,exportProgress,viewModel::setSelectedExportPreset,viewModel::dispatch)
+                                    EditorPanel.DELIVER -> DeliverPanel(
+                                        preset, exportState, exportProgress,
+                                        viewModel::setSelectedExportPreset, viewModel::dispatch,
+                                        onImportSrt = { srtImportPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) },
+                                        onExportSrt = { srtExportPicker.launch("DOK-subtitles.srt") }
+                                    )
                                     else -> {}
                                 }
                             }
