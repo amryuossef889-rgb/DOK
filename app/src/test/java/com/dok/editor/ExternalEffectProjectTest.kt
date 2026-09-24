@@ -31,12 +31,13 @@ class ExternalEffectProjectTest {
         assertEquals("Film Look", restored.effectLibrary.single().name)
         assertEquals("lut", restored.effectLibrary.single().kind)
 
-        val legacyObject = org.json.JSONObject(json).apply {
+        // Schema v1 is intentionally accepted without v2-only fields.
+        val legacy = org.json.JSONObject().apply {
+            put("id", "legacy")
             put("schemaVersion", 1)
-            remove("effectLibrary")
+            put("tracks", org.json.JSONArray())
         }
-        val legacyJson = legacyObject.toString()
-        val migrated = ProjectSerializer.deserializeFromJson(legacyJson)
+        val migrated = ProjectSerializer.deserializeFromJson(legacy.toString())
         assertEquals(2, migrated.schemaVersion)
         assertTrue(migrated.effectLibrary.isEmpty())
     }
