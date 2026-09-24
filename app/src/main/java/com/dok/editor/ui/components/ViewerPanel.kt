@@ -1,7 +1,9 @@
 package com.dok.editor.ui.components
 
 import android.net.Uri
-import android.widget.VideoView
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -10,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -46,32 +49,53 @@ fun ViewerPanel(
                 Text(EditorViewModel.formatTimecode(currentTimeUs, project.fps), color = DokAccent, fontSize = 14.sp, modifier = Modifier.testTag("timecode_display"))
             }
             Box(Modifier.fillMaxWidth().weight(1f).background(Color(0xFF07080A)).padding(8.dp), contentAlignment = Alignment.Center) {
-                AndroidView(
-                    modifier = Modifier.fillMaxSize().border(1.dp, DokDivider, RoundedCornerShape(4.dp)).testTag("master_video_view"),
-                    factory = { context -> VideoView(context).apply { setBackgroundColor(android.graphics.Color.BLACK) } },
-                    update = { view ->
-                        val uri = clip?.mediaUri?.let(Uri::parse)
-                        val uriString = uri?.toString() ?: ""
-                        if (view.tag != uriString) {
-                            view.tag = uriString
-                            if (uri != null) {
-                                try {
-                                    view.setVideoURI(uri)
-                                    view.setOnPreparedListener { player ->
-                                        player.isLooping = false
-                                        val localMs = ((currentTimeUs - (clip?.startTimeUs ?: 0L)) / 1000L).toInt().coerceAtLeast(0)
-                                        player.seekTo(localMs)
-                                        if (isPlaying) player.start()
-                                    }
-                                } catch (_: Throwable) { }
-                            } else view.stopPlayback()
+                val context = LocalContext.current
+                val player = remember(context) { ExoPlayer.Builder(context).build() }
+
+                DisposableEffect(player) {
+                    onDispose { player.release() }
+                }
+
+                LaunchedEffect(clip?.mediaUri) {
+                    val uri = clip?.mediaUri
+                    if (uri.isNullOrBlank()) {
+                        player.stop()
+                        player.clearMediaItems()
+                    } else {
+                        player.setMediaItem(MediaItem.fromUri(Uri.parse(uri)))
+                        player.prepare()
+                        val localMs = ((currentTimeUs - (clip.startTimeUs)) / 1000L).coerceAtLeast(0L)
+                        player.seekTo(localMs)
+                        player.playWhenReady = isPlaying
+                    }
+                }
+
+                LaunchedEffect(currentTimeUs, isPlaying, clip?.id) {
+                    if (clip != null) {
+                        val targetMs = ((currentTimeUs - clip.startTimeUs) / 1000L).coerceAtLeast(0L)
+                        val driftMs = kotlin.math.abs(player.currentPosition - targetMs)
+                        if (!isPlaying || driftMs > 120L) {
+                            player.seekTo(targetMs)
                         }
-                        if (clip != null) {
-                            val desiredMs = ((currentTimeUs - clip.startTimeUs) / 1000L).toInt().coerceAtLeast(0)
-                            if (!isPlaying && kotlin.math.abs(view.currentPosition - desiredMs) > 40) view.seekTo(desiredMs)
-                            if (isPlaying && !view.isPlaying) view.start()
-                            if (!isPlaying && view.isPlaying) view.pause()
-                        } else if (view.isPlaying) view.pause()
+                        if (isPlaying) player.play() else player.pause()
+                    } else {
+                        player.pause()
+                    }
+                }
+
+                AndroidView(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .border(1.dp, DokDivider, RoundedCornerShape(4.dp))
+                        .testTag("master_video_view"),
+                    factory = {
+                        PlayerView(it).apply {
+                            useController = false
+                            setShutterBackgroundColor(android.graphics.Color.BLACK)
+                        }
+                    },
+                    update = { view ->
+                        view.player = player
                     }
                 )
                 if (clip == null) {
