@@ -370,7 +370,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                                 })
                             },
                             modifiedAtMs = System.currentTimeMillis()
-                        )
+                        ).also { markChanged(it) }
                     }
                 }
                 return@launch
