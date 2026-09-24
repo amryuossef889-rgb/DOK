@@ -369,10 +369,7 @@ private fun ClipFrameThumbnail(clip: TimelineClip) {
                 try {
                     val retriever = MediaMetadataRetriever()
                     retriever.setDataSource(Uri.parse(clip.mediaUri), emptyMap<String, String>())
-                    val result = retriever.getFrameAtTime(
-                        clip.trimInUs.coerceAtLeast(0L),
-                        MediaMetadataRetriever.OPTION_CLOSEST_SYNC
-                    )
+                    val result = retriever.getFrameAtTime(clip.trimInUs.coerceAtLeast(0L))
                     retriever.release()
                     result
                 } catch (_: Throwable) { null }
