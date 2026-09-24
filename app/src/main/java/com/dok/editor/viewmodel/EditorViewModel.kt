@@ -127,7 +127,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             renderQueue.enqueue(spec) { progress ->
                 ExportPipeline(getApplication(), snapshot, preset).execute(
-                    onProgress = progress,
+                    onProgress = { value -> progress(value) },
                     onComplete = {},
                     onError = { throw it }
                 )
@@ -154,7 +154,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 val preset = exportPresetById(spec.presetId) ?: return@forEach
                 renderQueue.enqueue(spec) { progress ->
                     ExportPipeline(getApplication(), snap, preset).execute(
-                        onProgress = progress,
+                        onProgress = { value -> progress(value) },
                         onComplete = {},
                         onError = { throw it }
                     )
@@ -175,7 +175,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     fun restoreRecoverySnapshot(fileName: String): Boolean {
         val file = recoveryManager.snapshots(_project.value.id).firstOrNull { it.name == fileName } ?: return false
-        val restored = runCatching { ProjectSerializer.loadProject(file) }.getOrNull() ?: return false
+        val restored = try { ProjectSerializer.loadProject(file) } catch (_: Throwable) { return false }
         history.clear()
         _project.value = restored
         _mediaAssets.value = restored.mediaPool
