@@ -64,9 +64,10 @@ object TimelineEditingEngine {
     }
 
     fun splitLinkedClip(project: Project, clipId: String, splitTimeUs: Long): Project {
-        val clip = project.tracks.flatMap { it.clips }.firstOrNull { it.id == clipId } ?: return project
+        val clip = project.tracks.asSequence().flatMap { it.clips.asSequence() }.firstOrNull { it.id == clipId }
+            ?: return project
         val linkedId = clip.linkedClipId ?: return splitClip(project, clipId, splitTimeUs)
-        val linked = project.tracks.flatMap { it.clips }.firstOrNull { it.id == linkedId }
+        val linked = project.tracks.asSequence().flatMap { it.clips.asSequence() }.firstOrNull { it.id == linkedId }
             ?: return splitClip(project, clipId, splitTimeUs)
 
         if (splitTimeUs <= clip.startTimeUs + MIN_CLIP_DURATION_US ||
@@ -75,28 +76,37 @@ object TimelineEditingEngine {
             splitTimeUs >= linked.endTimeUs - MIN_CLIP_DURATION_US
         ) return project
 
-        var updated = splitClip(project, clipId, splitTimeUs)
-        updated = splitClip(updated, linkedId, splitTimeUs)
+        val existingIds = project.tracks.flatMap { it.clips }.mapTo(HashSet()) { it.id }
+        var updated = splitClip(project, clip.id, splitTimeUs)
+        val leftA = updated.tracks.flatMap { it.clips }
+            .filter { !existingIds.contains(it.id) && it.trackId == clip.trackId }
+            .minByOrNull { it.startTimeUs } ?: return updated
 
-        val clipParts = updated.tracks.flatMap { it.clips }
-            .filter { it.mediaUri == clip.mediaUri && it.startTimeUs >= clip.startTimeUs && it.endTimeUs <= clip.endTimeUs }
+        val afterVideoSplitIds = updated.tracks.flatMap { it.clips }.mapTo(HashSet()) { it.id }
+        updated = splitClip(updated, linked.id, splitTimeUs)
+        val newLinkedParts = updated.tracks.flatMap { it.clips }
+            .filter { !afterVideoSplitIds.contains(it.id) && it.trackId == linked.trackId }
             .sortedBy { it.startTimeUs }
-        val linkedParts = updated.tracks.flatMap { it.clips }
-            .filter { it.mediaUri == linked.mediaUri && it.startTimeUs >= linked.startTimeUs && it.endTimeUs <= linked.endTimeUs }
-            .sortedBy { it.startTimeUs }
+        if (newLinkedParts.size != 2) return updated
 
-        if (clipParts.size < 2 || linkedParts.size < 2) return updated
-        val leftA = clipParts[0]; val rightA = clipParts[1]
-        val leftB = linkedParts[0]; val rightB = linkedParts[1]
+        val videoParts = updated.tracks.flatMap { it.clips }
+            .filter { !existingIds.contains(it.id) && it.trackId == clip.trackId }
+            .sortedBy { it.startTimeUs }
+        if (videoParts.size != 2) return updated
+
+        val leftVideo = videoParts.first()
+        val rightVideo = videoParts.last()
+        val leftAudio = newLinkedParts.first()
+        val rightAudio = newLinkedParts.last()
 
         return updated.copy(
             tracks = updated.tracks.map { track ->
                 track.copy(clips = track.clips.map { item ->
                     when (item.id) {
-                        leftA.id -> item.copy(linkedClipId = leftB.id)
-                        rightA.id -> item.copy(linkedClipId = rightB.id)
-                        leftB.id -> item.copy(linkedClipId = leftA.id)
-                        rightB.id -> item.copy(linkedClipId = rightA.id)
+                        leftVideo.id -> item.copy(linkedClipId = leftAudio.id)
+                        rightVideo.id -> item.copy(linkedClipId = rightAudio.id)
+                        leftAudio.id -> item.copy(linkedClipId = leftVideo.id)
+                        rightAudio.id -> item.copy(linkedClipId = rightVideo.id)
                         else -> item
                     }
                 })
@@ -104,7 +114,6 @@ object TimelineEditingEngine {
             modifiedAtMs = System.currentTimeMillis()
         )
     }
-
 
     /**
      * Trims in or out point of a clip, updating timeline bounds accordingly.
