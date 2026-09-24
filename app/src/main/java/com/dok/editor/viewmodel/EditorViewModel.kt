@@ -469,4 +469,15 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             mediaPool = mediaPool
         )
     }
+    fun addExternalEffectAsset(asset: com.dok.editor.model.ExternalEffectAsset) {
+        commit { project ->
+            if (project.effectLibrary.any { it.id == asset.id }) project
+            else project.copy(effectLibrary = project.effectLibrary + asset)
+        }
+    }
+
+    fun removeExternalEffectAsset(assetId: String) {
+        commit { project -> project.copy(effectLibrary = project.effectLibrary.filterNot { it.id == assetId }) }
+    }
+
 }
