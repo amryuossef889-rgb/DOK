@@ -473,6 +473,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         )
     }
     fun applyExternalEffectAsset(asset: ExternalEffectAsset) {
+        addExternalEffectAsset(asset)
         val clipId = _selectedClipId.value ?: return
         val path = Uri.parse(asset.uri).path ?: return
         val file = File(path)
@@ -498,6 +499,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun insertExternalAudioEffect(asset: ExternalEffectAsset) {
+        addExternalEffectAsset(asset)
         val uri = Uri.parse(asset.uri)
         importMedia(uri.toString(), asset.name, 1_000_000L, _currentTimeUs.value, null)
     }
