@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import coil.compose.AsyncImage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -83,7 +84,23 @@ fun ViewerPanel(
                     }
                 }
 
-                AndroidView(
+                val isImageClip = remember(clip?.mediaUri) {
+                    clip?.mediaUri?.let { mediaUri ->
+                        context.contentResolver.getType(Uri.parse(mediaUri)).orEmpty().startsWith("image/")
+                    } ?: false
+                }
+
+                if (isImageClip && clip != null) {
+                    AsyncImage(
+                        model = Uri.parse(clip.mediaUri),
+                        contentDescription = clip.mediaName,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .border(1.dp, DokDivider, RoundedCornerShape(4.dp))
+                            .testTag("master_image_view"),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                    )
+                } else AndroidView(
                     modifier = Modifier
                         .fillMaxSize()
                         .border(1.dp, DokDivider, RoundedCornerShape(4.dp))
