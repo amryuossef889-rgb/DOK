@@ -1,9 +1,12 @@
 package com.dok.editor.ui.components
 
+import android.content.ClipData
 import android.net.Uri
+import android.view.View
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.draganddrop.dragAndDropSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,6 +19,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draganddrop.DragAndDropTransferData
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -82,7 +86,14 @@ private fun MediaPoolAssetRow(asset: MediaAsset, onAdd: () -> Unit) {
         AsyncImage(
             model = Uri.parse(asset.uri),
             contentDescription = null,
-            modifier = Modifier.size(72.dp).background(DokBackground, RoundedCornerShape(4.dp)),
+            modifier = Modifier.size(72.dp)
+                .background(DokBackground, RoundedCornerShape(4.dp))
+                .dragAndDropSource { _ ->
+                    DragAndDropTransferData(
+                        ClipData.newPlainText("DOK_MEDIA_ASSET", asset.id),
+                        flags = View.DRAG_FLAG_GLOBAL
+                    )
+                },
             contentScale = ContentScale.Crop
         )
         Spacer(Modifier.width(8.dp))
