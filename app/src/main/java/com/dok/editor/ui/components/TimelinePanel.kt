@@ -278,19 +278,26 @@ private fun TimelineClipBlock(
                 modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp))
         }
         if (selected) {
+            var trimStartOffsetPx by remember(clip.id, clip.startTimeUs) { mutableFloatStateOf(0f) }
+            var trimEndOffsetPx by remember(clip.id, clip.endTimeUs) { mutableFloatStateOf(0f) }
             Box(
                 Modifier
                     .align(Alignment.CenterStart)
                     .width(7.dp)
                     .fillMaxHeight()
                     .background(DokAccent, RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp))
-                    .pointerInput(clip.id, clip.startTimeUs) {
+                    .pointerInput(clip.id, clip.startTimeUs, pps) {
                         detectDragGestures(
-                            onDragStart = { onSelect() },
+                            onDragStart = { trimStartOffsetPx = 0f; onSelect() },
+                            onDragCancel = { trimStartOffsetPx = 0f },
+                            onDragEnd = {
+                                val deltaUs = with(density) { trimStartOffsetPx.toDp().value / pps * 1_000_000L }.toLong()
+                                if (deltaUs != 0L) onTrimStart((clip.startTimeUs + deltaUs).coerceAtLeast(0L))
+                                trimStartOffsetPx = 0f
+                            },
                             onDrag = { change, drag ->
                                 change.consume()
-                                val deltaUs = with(density) { drag.x.toDp().value / pps * 1_000_000L }.toLong()
-                                onTrimStart((clip.startTimeUs + deltaUs).coerceAtLeast(0L))
+                                trimStartOffsetPx += drag.x
                             }
                         )
                     }
@@ -301,13 +308,18 @@ private fun TimelineClipBlock(
                     .width(7.dp)
                     .fillMaxHeight()
                     .background(DokAccent, RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
-                    .pointerInput(clip.id, clip.endTimeUs) {
+                    .pointerInput(clip.id, clip.endTimeUs, pps) {
                         detectDragGestures(
-                            onDragStart = { onSelect() },
+                            onDragStart = { trimEndOffsetPx = 0f; onSelect() },
+                            onDragCancel = { trimEndOffsetPx = 0f },
+                            onDragEnd = {
+                                val deltaUs = with(density) { trimEndOffsetPx.toDp().value / pps * 1_000_000L }.toLong()
+                                if (deltaUs != 0L) onTrimEnd((clip.endTimeUs + deltaUs).coerceAtLeast(0L))
+                                trimEndOffsetPx = 0f
+                            },
                             onDrag = { change, drag ->
                                 change.consume()
-                                val deltaUs = with(density) { drag.x.toDp().value / pps * 1_000_000L }.toLong()
-                                onTrimEnd((clip.endTimeUs + deltaUs).coerceAtLeast(0L))
+                                trimEndOffsetPx += drag.x
                             }
                         )
                     }
