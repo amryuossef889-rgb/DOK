@@ -27,11 +27,17 @@ class ExternalEffectProjectTest {
         assertEquals("Film Look", restored.effectLibrary.single().name)
         assertEquals("lut", restored.effectLibrary.single().kind)
 
-        val legacyObject = JSONObject(json).apply {
+        val legacy = JSONObject().apply {
+            put("id", "legacy")
             put("schemaVersion", 1)
-            remove("effectLibrary")
+            put("name", "Legacy")
+            put("width", 1920)
+            put("height", 1080)
+            put("fps", 30)
+            put("tracks", org.json.JSONArray())
+            put("mediaPool", org.json.JSONArray())
         }
-        val migrated = ProjectSerializer.deserializeFromJson(legacyObject.toString())
+        val migrated = ProjectSerializer.deserializeFromJson(legacy.toString())
         assertEquals(2, migrated.schemaVersion)
         assertTrue(migrated.effectLibrary.isEmpty())
     }
