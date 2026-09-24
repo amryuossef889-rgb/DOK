@@ -18,6 +18,7 @@ object ShortcutStore {
         "Zoom In" to "+",
         "Zoom Out" to "-",
         "Delete" to "Delete",
+        "Backspace" to "Backspace",
         "Ripple Delete" to "Shift+Delete"
     )
 
@@ -51,6 +52,7 @@ object ShortcutStore {
                 "Zoom In" -> EditorCommand.ZoomTimeline(.25f)
                 "Zoom Out" -> EditorCommand.ZoomTimeline(-.25f)
                 "Delete" -> EditorCommand.DeleteSelectedClip
+                "Backspace" -> EditorCommand.DeleteSelectedClip
                 "Ripple Delete" -> EditorCommand.RippleDeleteSelectedClip
                 else -> null
             }
