@@ -65,6 +65,13 @@ android {
     includeInApk = false
     includeInBundle = true
   }
+
+  packaging {
+    jniLibs {
+      // Keep native media runtimes uncompressed for direct mmap/loading and 16 KB alignment.
+      useLegacyPackaging = false
+    }
+  }
 }
 
 secrets {
