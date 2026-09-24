@@ -65,7 +65,9 @@ data class TimelineClip(
     val keyframes: List<Keyframe> = emptyList(), val colorParams: ColorGradingParams = ColorGradingParams(),
     val effects: List<Effect.ParametricEffect> = emptyList(),
     val transitionIn: TransitionConfig? = null, val transitionOut: TransitionConfig? = null,
-    val textOverlay: TextOverlayConfig? = null
+    val textOverlay: TextOverlayConfig? = null,
+    val linkedClipId: String? = null,
+    val waveform: List<Float> = emptyList()
 ) { val endTimeUs: Long get() = startTimeUs + durationUs }
 
 data class Track(
