@@ -3,6 +3,7 @@ package com.dok.editor
 import com.dok.editor.engine.audio.PcmMixer
 import com.dok.editor.engine.nodes.NodeGraphExecutor
 import com.dok.editor.engine.nodes.NodeFrame
+import com.dok.editor.engine.nodes.NodeOperator
 import com.dok.editor.model.Node
 import com.dok.editor.model.NodeConnection
 import com.dok.editor.model.NodeGraph
@@ -224,7 +225,7 @@ class PcmMixerAndRenderPlanTest {
             )
         )
         val frame = NodeFrame(FloatArray(4), 1, 1)
-        val executor = NodeGraphExecutor(mapOf("pass" to { _, _ -> frame }))
+        val executor = NodeGraphExecutor(mapOf("pass" to NodeOperator { _, _ -> frame }))
         try {
             executor.execute(graph, frame)
             throw AssertionError("Expected cycle rejection")
