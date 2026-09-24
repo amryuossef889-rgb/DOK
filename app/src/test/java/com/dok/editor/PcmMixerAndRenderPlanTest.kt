@@ -8,6 +8,8 @@ import com.dok.editor.model.Node
 import com.dok.editor.model.NodeConnection
 import com.dok.editor.model.NodeGraph
 import com.dok.editor.engine.plan.TimelineRenderPlan
+import com.dok.editor.engine.subtitle.SrtSubtitleCodec
+import com.dok.editor.engine.subtitle.SubtitleCue
 import com.dok.editor.model.InterpolationType
 import com.dok.editor.model.Keyframe
 import com.dok.editor.model.KeyframeProperty
@@ -232,6 +234,21 @@ class PcmMixerAndRenderPlanTest {
         } catch (expected: IllegalArgumentException) {
             assertTrue(expected.message!!.contains("cycle"))
         }
+    }
+
+    @Test
+    fun testSrtRoundTrip() {
+        val cues = listOf(
+            SubtitleCue(1, 1_250_000L, 2_500_000L, "Hello\\nWorld"),
+            SubtitleCue(2, 3_000_000L, 4_125_000L, "Second")
+        )
+        val encoded = SrtSubtitleCodec.write(cues)
+        val decoded = SrtSubtitleCodec.parse(encoded)
+        assertEquals(cues[0].text, decoded[0].text)
+        assertEquals(cues[0].startTimeUs, decoded[0].startTimeUs)
+        assertEquals(cues[0].endTimeUs, decoded[0].endTimeUs)
+        assertEquals(cues[1].startTimeUs, decoded[1].startTimeUs)
+        assertEquals(cues[1].endTimeUs, decoded[1].endTimeUs)
     }
 
 }
