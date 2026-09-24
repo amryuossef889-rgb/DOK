@@ -106,7 +106,17 @@ fun TimelinePanel(
                             val trackIndex = ((yPx - rowTopPx) / rowHeightPx).toInt()
                             val targetTrack = project.tracks.getOrNull(trackIndex) ?: return false
                             val startUs = ((xPx / density.density) / pps * 1_000_000L).toLong().coerceAtLeast(0L)
-                            onCommand(EditorCommand.AddMediaAssetToTimeline(assetId, startUs, targetTrack.id))
+                            val dragLabel = clipData.description?.label?.toString().orEmpty()
+                            if (dragLabel == "DOK_EFFECT_ASSET") {
+                                val effect = project.effectLibrary.firstOrNull { it.id == assetId } ?: return false
+                                if (effect.kind == "audio-sfx") {
+                                    onCommand(EditorCommand.InsertSoundEffectAsset(assetId, startUs))
+                                } else {
+                                    onCommand(EditorCommand.ApplyExternalEffectAsset(assetId, startUs))
+                                }
+                            } else {
+                                onCommand(EditorCommand.AddMediaAssetToTimeline(assetId, startUs, targetTrack.id))
+                            }
                             return true
                         }
                     }
