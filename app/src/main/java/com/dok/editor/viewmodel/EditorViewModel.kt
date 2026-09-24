@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-enum class EditorPanel { TIMELINE, INSPECTOR, COLOR, EFFECTS, DELIVER }
+enum class EditorPanel { MEDIA_POOL, TIMELINE, INSPECTOR, COLOR, EFFECTS, DELIVER }
 enum class ExportUiState { IDLE, EXPORTING, SUCCESS, ERROR }
 
 class EditorViewModel(application: Application) : AndroidViewModel(application) {
