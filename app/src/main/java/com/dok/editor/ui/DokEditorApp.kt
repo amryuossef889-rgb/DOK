@@ -165,7 +165,12 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                             EditorPanel.TIMELINE -> TimelinePanel(project,currentTimeUs,selectedClipId,snapping,zoom,canUndo,canRedo,inPoint,outPoint,viewModel::dispatch,Modifier.fillMaxSize())
                             EditorPanel.INSPECTOR, EditorPanel.COLOR -> InspectorPanel(viewModel.getSelectedClip(),viewModel::dispatch)
                             EditorPanel.EFFECTS -> EffectsLibraryPanel(effectLibrary, viewModel::applyExternalEffectAsset, viewModel::insertExternalAudioEffect, viewModel::addExternalEffectAsset, viewModel::removeExternalEffectAsset)
-                            EditorPanel.DELIVER -> DeliverPanel(preset,exportState,exportProgress,viewModel::setSelectedExportPreset,viewModel::dispatch)
+                            EditorPanel.DELIVER -> DeliverPanel(
+                                preset, exportState, exportProgress,
+                                viewModel::setSelectedExportPreset, viewModel::dispatch,
+                                onImportSrt = { srtImportPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) },
+                                onExportSrt = { srtExportPicker.launch("DOK-subtitles.srt") }
+                            )
                         }
                     }
                     NavigationBar(containerColor=DokSurfaceElevated, modifier=Modifier.height(58.dp)) {
