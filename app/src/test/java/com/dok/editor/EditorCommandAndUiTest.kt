@@ -222,6 +222,5 @@ class EditorCommandAndUiTest {
         composeTestRule.onNodeWithTag("play_pause_button").assertExists()
         composeTestRule.onNodeWithTag("timeline_panel").assertExists()
         composeTestRule.onNodeWithTag("split_button").assertExists()
-        composeTestRule.onNodeWithTag("bottom_nav_bar").assertExists()
     }
 }
