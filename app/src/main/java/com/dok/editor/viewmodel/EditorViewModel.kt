@@ -87,7 +87,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             is EditorCommand.SelectTrack -> _selectedTrackId.value = command.trackId
             is EditorCommand.TrimClipStart -> trimStart(command)
             is EditorCommand.TrimClipEnd -> trimEnd(command)
-            is EditorCommand.MoveClip -> commit(TimelineEditingEngine.moveClip(_project.value, command.clipId, command.targetTrackId ?: findClip(command.clipId)?.trackId ?: return, command.newStartTimeUs))
+            is EditorCommand.MoveClip -> moveClipLinked(command)
             is EditorCommand.ChangeClipSpeed -> commit(TimelineEditingEngine.changeSpeed(_project.value, command.clipId, command.speed))
             is EditorCommand.UpdateClipTransform -> updateClip(command.clipId) { it.copy(transform = command.transform) }
             is EditorCommand.UpdateColorGrading -> updateClip(command.clipId) { it.copy(colorParams = command.colorParams) }
@@ -141,6 +141,19 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         commit(if (ripple) TimelineEditingEngine.rippleDelete(_project.value, setOf(id)) else TimelineEditingEngine.liftDelete(_project.value, setOf(id)))
         _selectedClipId.value = null
     }
+    private fun moveClipLinked(command: EditorCommand.MoveClip) {
+        val clip = findClip(command.clipId) ?: return
+        val trackId = command.targetTrackId ?: clip.trackId
+        val delta = command.newStartTimeUs - clip.startTimeUs
+        var updated = TimelineEditingEngine.moveClip(_project.value, clip.id, trackId, command.newStartTimeUs.coerceAtLeast(0L))
+        val linkedId = clip.linkedClipId
+        if (linkedId != null) {
+            val linked = findClipIn(updated, linkedId)
+            if (linked != null) updated = TimelineEditingEngine.moveClip(updated, linkedId, linked.trackId, (linked.startTimeUs + delta).coerceAtLeast(0L))
+        }
+        commit(updated)
+    }
+    private fun findClipIn(project: Project, id: String): TimelineClip? = project.tracks.asSequence().flatMap { it.clips.asSequence() }.firstOrNull { it.id == id }
     private fun trimStart(c: EditorCommand.TrimClipStart) {
         val clip = findClip(c.clipId) ?: return
         val start = c.newStartTimeUs.coerceIn(clip.startTimeUs, clip.endTimeUs - TimelineEditingEngine.MIN_CLIP_DURATION_US)
