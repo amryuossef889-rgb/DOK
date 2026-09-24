@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.dok.editor.ui.components
 
 import android.net.Uri
