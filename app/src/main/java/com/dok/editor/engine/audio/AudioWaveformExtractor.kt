@@ -166,6 +166,9 @@ object AudioWaveformExtractor {
         }
     }
 
+    private fun getIntegerCompat(format: MediaFormat, key: String, defaultValue: Int): Int =
+        if (format.containsKey(key)) runCatching { format.getInteger(key) }.getOrDefault(defaultValue) else defaultValue
+
     private fun readPcmSample(buffer: ByteBuffer, encoding: Int): Float {
         return when (encoding) {
             AudioFormat.ENCODING_PCM_FLOAT -> buffer.float
