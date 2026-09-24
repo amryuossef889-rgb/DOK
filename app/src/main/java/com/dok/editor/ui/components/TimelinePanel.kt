@@ -132,16 +132,25 @@ fun TimelinePanel(
                             },
                             target = dropTarget
                         )
-                        .pointerInput(zoomLevel) {
-                            detectTransformGestures { _, _, zoomChange, _ ->
-                                if (abs(zoomChange - 1f) > 0.001f) {
-                                    onCommand(EditorCommand.ZoomTimeline((zoomChange - 1f) * gestureZoom))
+                ) {
+                    // Keep pinch recognition outside horizontalScroll. Compose's scroll modifier
+                    // otherwise consumes the two-finger gesture as horizontal scrolling, which
+                    // makes the timeline appear to ignore pinch-to-zoom.
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .pointerInput(zoomLevel) {
+                                detectTransformGestures { _, _, zoomChange, _ ->
+                                    if (abs(zoomChange - 1f) > 0.001f) {
+                                        val current = gestureZoom.coerceIn(.25f, 8f)
+                                        val next = (current * zoomChange).coerceIn(.25f, 8f)
+                                        onCommand(EditorCommand.ZoomTimeline(next - current))
+                                    }
                                 }
                             }
-                        }
-                        .horizontalScroll(scroll)
-                ) {
-                    Box(Modifier.width(totalWidth).fillMaxHeight()) {
+                            .horizontalScroll(scroll)
+                    ) {
+                        Box(Modifier.width(totalWidth).fillMaxHeight()) {
                         Column(Modifier.fillMaxSize()) {
                             Box(Modifier.fillMaxWidth().height(34.dp).background(DokSurfaceElevated).pointerInput(duration, pps) {
                                 detectTapGestures { o ->
