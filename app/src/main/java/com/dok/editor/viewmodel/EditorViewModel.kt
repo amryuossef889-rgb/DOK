@@ -119,7 +119,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             EditorCommand.ZoomToFit -> _zoomLevel.value = 1f
             is EditorCommand.ImportMediaClip -> importMedia(command.uri, command.name, command.durationUs)
             is EditorCommand.AddMediaAssetToTimeline -> mediaPool.find(command.assetId)?.let { asset ->
-                importMedia(asset.uri, asset.name, asset.durationUs, command.startTimeUs)
+                importMedia(asset.uri, asset.name, asset.durationUs, command.startTimeUs, command.targetTrackId)
             }
             is EditorCommand.RequestExport -> { _selectedExportPreset.value = command.preset; startExport(command.preset) }
             is EditorCommand.SetProjectSettings -> {
@@ -204,7 +204,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     private fun commit(p: Project) { history.pushState(_project.value); _project.value = p; syncHistory() }
     private fun syncHistory() { _canUndo.value = history.canUndo; _canRedo.value = history.canRedo }
 
-    private fun importMedia(uriString: String, fallbackName: String, fallbackDurationUs: Long, startTimeOverrideUs: Long? = null) {
+    private fun importMedia(uriString: String, fallbackName: String, fallbackDurationUs: Long, startTimeOverrideUs: Long? = null, targetTrackId: String? = null) {
         val uri = Uri.parse(uriString)
         viewModelScope.launch {
             val info = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -281,8 +281,13 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             if (!isVideo) return@launch
-            val videoTrack = _project.value.tracks.firstOrNull { it.type == TrackType.VIDEO } ?: return@launch
-            val audioTrack = if (isAudio) _project.value.tracks.firstOrNull { it.type == TrackType.AUDIO } else null
+            val requestedTrack = targetTrackId?.let { id -> _project.value.tracks.firstOrNull { it.id == id } }
+            val videoTrack = requestedTrack?.takeIf { it.type == TrackType.VIDEO }
+                ?: _project.value.tracks.firstOrNull { it.type == TrackType.VIDEO } ?: return@launch
+            val audioTrack = if (isAudio) {
+                requestedTrack?.takeIf { it.type == TrackType.AUDIO }
+                    ?: _project.value.tracks.firstOrNull { it.type == TrackType.AUDIO }
+            } else null
 
             val videoClip = TimelineClip(
                 trackId = videoTrack.id,
