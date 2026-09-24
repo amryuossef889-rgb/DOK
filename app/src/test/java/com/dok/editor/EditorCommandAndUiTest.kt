@@ -119,7 +119,7 @@ class EditorCommandAndUiTest {
 
     @Test
     fun testEditingCommandsAndUndoRedo() {
-        val vm = EditorViewModel(ApplicationProvider.getApplicationContext<Application>())
+        val vm = newViewModel()
         val initialClipsCount = vm.project.value.tracks[0].clips.size
         val firstClip = vm.project.value.tracks[0].clips.first()
 
@@ -168,7 +168,7 @@ class EditorCommandAndUiTest {
 
     @Test
     fun testClipPropertiesAndEffectsCommands() {
-        val vm = EditorViewModel(ApplicationProvider.getApplicationContext<Application>())
+        val vm = newViewModel()
         val firstClip = vm.project.value.tracks[0].clips.first()
 
         // Update Transform
@@ -207,7 +207,7 @@ class EditorCommandAndUiTest {
 
     @Test
     fun testDokEditorAppUiComposition() {
-        val vm = EditorViewModel(ApplicationProvider.getApplicationContext<Application>())
+        val vm = newViewModel()
 
         composeTestRule.setContent {
             DokEditorTheme {
