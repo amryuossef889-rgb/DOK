@@ -522,6 +522,33 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         importMedia(uri.toString(), asset.name, durationFallback, startTimeUs.coerceAtLeast(0L), null)
     }
 
+    fun exportSrtText(): String {
+        val cues = _project.value.tracks
+            .filter { it.type == TrackType.TEXT }
+            .flatMap { it.clips }
+            .mapIndexed { index, clip ->
+                val text = clip.textOverlay?.text?.trim().orEmpty()
+                com.dok.editor.engine.subtitle.SubtitleCue(
+                    index = index + 1,
+                    startTimeUs = clip.startTimeUs,
+                    endTimeUs = clip.endTimeUs,
+                    text = text
+                )
+            }
+            .filter { it.text.isNotBlank() && it.endTimeUs > it.startTimeUs }
+        return SrtSubtitleCodec.write(cues)
+    }
+
+    fun writeSrtToUri(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                getApplication<Application>().contentResolver.openOutputStream(uri)?.use { output ->
+                    output.write(exportSrtText().toByteArray(Charsets.UTF_8))
+                } ?: error("Cannot open destination")
+            }
+        }
+    }
+
     fun importSrtSubtitles(uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             val text = getApplication<Application>().contentResolver.openInputStream(uri)
