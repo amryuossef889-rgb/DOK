@@ -445,5 +445,4 @@ fun DokEditorApp(
             }
         }
     }
-}
-\n    if (showProjectSettings) {\n        ProjectSettingsDialog(project = project, onDismiss = { showProjectSettings = false }, onCommand = viewModel::dispatch)\n    }\n
+}\n    if (showProjectSettings) {\n        ProjectSettingsDialog(project = project, onDismiss = { showProjectSettings = false }, onCommand = viewModel::dispatch)\n    }\n
