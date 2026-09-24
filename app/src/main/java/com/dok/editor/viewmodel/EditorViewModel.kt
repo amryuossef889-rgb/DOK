@@ -104,7 +104,14 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                         )
                     }
             }
-            is EditorCommand.ChangeClipSpeed -> commit(TimelineEditingEngine.changeSpeed(_project.value, command.clipId, command.speed))
+            is EditorCommand.ChangeClipSpeed -> {
+                val clip = findClip(command.clipId)
+                var updated = TimelineEditingEngine.changeSpeed(_project.value, command.clipId, command.speed)
+                clip?.linkedClipId?.let { linkedId ->
+                    updated = TimelineEditingEngine.changeSpeed(updated, linkedId, command.speed)
+                }
+                commit(updated)
+            }
             is EditorCommand.UpdateClipAudio -> updateClip(command.clipId) { it.copy(volumeDb = command.volumeDb, pan = command.pan) }
             is EditorCommand.UpdateClipTransform -> updateClip(command.clipId) { it.copy(transform = command.transform) }
             is EditorCommand.UpdateColorGrading -> updateClip(command.clipId) { it.copy(colorParams = command.colorParams) }
@@ -198,13 +205,55 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     private fun findClipIn(project: Project, id: String): TimelineClip? = project.tracks.asSequence().flatMap { it.clips.asSequence() }.firstOrNull { it.id == id }
     private fun trimStart(c: EditorCommand.TrimClipStart) {
         val clip = findClip(c.clipId) ?: return
-        val start = c.newStartTimeUs.coerceIn(clip.startTimeUs, clip.endTimeUs - TimelineEditingEngine.MIN_CLIP_DURATION_US)
-        commit(TimelineEditingEngine.trimClip(_project.value, clip.id, start, clip.endTimeUs - start, clip.trimInUs, clip.trimOutUs))
+        val start = c.newStartTimeUs.coerceIn(
+            clip.startTimeUs,
+            clip.endTimeUs - TimelineEditingEngine.MIN_CLIP_DURATION_US
+        )
+        val trimmed = TimelineEditingEngine.trimClip(
+            _project.value, clip.id, start, clip.endTimeUs - start, clip.trimInUs, clip.trimOutUs
+        )
+        val delta = start - clip.startTimeUs
+        val updated = clip.linkedClipId?.let { linkedId ->
+            val linked = findClipIn(trimmed, linkedId)
+            if (linked != null) {
+                trimmed.copy(
+                    tracks = trimmed.tracks.map { track ->
+                        track.copy(clips = track.clips.map { other ->
+                            if (other.id == linked.id) other.copy(
+                                startTimeUs = (other.startTimeUs + delta).coerceAtLeast(0L),
+                                durationUs = (other.durationUs - delta).coerceAtLeast(TimelineEditingEngine.MIN_CLIP_DURATION_US)
+                            ) else other
+                        })
+                    }
+                )
+            } else trimmed
+        } ?: trimmed
+        commit(updated)
     }
+
     private fun trimEnd(c: EditorCommand.TrimClipEnd) {
         val clip = findClip(c.clipId) ?: return
-        val end = c.newEndTimeUs.coerceIn(clip.startTimeUs + TimelineEditingEngine.MIN_CLIP_DURATION_US, clip.endTimeUs + maxOf(0L, clip.sourceDurationUs - clip.durationUs))
-        commit(TimelineEditingEngine.trimClip(_project.value, clip.id, clip.startTimeUs, end - clip.startTimeUs, clip.trimInUs, clip.trimOutUs))
+        val end = c.newEndTimeUs.coerceIn(
+            clip.startTimeUs + TimelineEditingEngine.MIN_CLIP_DURATION_US,
+            clip.endTimeUs + maxOf(0L, clip.sourceDurationUs - clip.durationUs)
+        )
+        val trimmed = TimelineEditingEngine.trimClip(
+            _project.value, clip.id, clip.startTimeUs, end - clip.startTimeUs, clip.trimInUs, clip.trimOutUs
+        )
+        val updated = clip.linkedClipId?.let { linkedId ->
+            val linked = findClipIn(trimmed, linkedId)
+            if (linked != null) {
+                val linkedDuration = (end - linked.startTimeUs).coerceAtLeast(TimelineEditingEngine.MIN_CLIP_DURATION_US)
+                trimmed.copy(
+                    tracks = trimmed.tracks.map { track ->
+                        track.copy(clips = track.clips.map { other ->
+                            if (other.id == linked.id) other.copy(durationUs = linkedDuration) else other
+                        })
+                    }
+                )
+            } else trimmed
+        } ?: trimmed
+        commit(updated)
     }
     private fun updateClip(id: String, fn: (TimelineClip) -> TimelineClip) {
         commit(_project.value.copy(tracks = _project.value.tracks.map { t -> t.copy(clips = t.clips.map { c -> if (c.id == id) fn(c) else c }) }, modifiedAtMs = System.currentTimeMillis()))
