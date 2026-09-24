@@ -39,7 +39,7 @@ class ExternalEffectProjectTest {
         }
         val migrated = ProjectSerializer.deserializeFromJson(legacy.toString())
         assertEquals(2, migrated.schemaVersion)
-        assertEquals("p1", migrated.id)
+        assertEquals("legacy", migrated.id)
         assertTrue(migrated.effectLibrary.isEmpty())
     }
 }
