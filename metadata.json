@@ -1,0 +1,6 @@
+{
+  "name": "Dok Editor",
+  "description": "Professional multi-track video editor for gaming content creators",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
