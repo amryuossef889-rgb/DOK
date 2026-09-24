@@ -48,6 +48,7 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
     val renderJobs by viewModel.renderQueueState.collectAsState()
     var settings by remember { mutableStateOf(false) }
     var shortcutSettings by remember { mutableStateOf(false) }
+    var recoverySettings by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val effectLibrary = remember(context) { com.dok.editor.engine.effects.ExternalEffectLibrary(context) }
     val focus = remember { FocusRequester() }
@@ -190,6 +191,17 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
             }
         }
     }
-    if (settings) ProjectSettingsDialog(project,{settings=false},viewModel::dispatch,{shortcutSettings=true})
+    if (settings) ProjectSettingsDialog(
+        project,
+        { settings = false },
+        viewModel::dispatch,
+        { shortcutSettings = true },
+        { settings = false; recoverySettings = true }
+    )
     if (shortcutSettings) ShortcutSettingsDialog(context,{shortcutSettings=false})
+    if (recoverySettings) RecoveryDialog(
+        snapshots = viewModel.recoverySnapshots(),
+        onRestore = { viewModel.restoreRecoverySnapshot(it) },
+        onDismiss = { recoverySettings = false }
+    )
 }
