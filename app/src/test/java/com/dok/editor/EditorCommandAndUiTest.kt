@@ -9,6 +9,11 @@ import com.dok.editor.model.EffectType
 import com.dok.editor.model.Transform2D
 import com.dok.editor.model.TransitionConfig
 import com.dok.editor.model.TransitionType
+import com.dok.editor.model.Project
+import com.dok.editor.model.Track
+import com.dok.editor.model.TrackType
+import com.dok.editor.model.TimelineClip
+import com.dok.editor.persistence.ProjectSerializer
 import com.dok.editor.ui.DokEditorApp
 import com.dok.editor.ui.theme.DokEditorTheme
 import com.dok.editor.viewmodel.EditorPanel
@@ -20,6 +25,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,6 +39,26 @@ class EditorCommandAndUiTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
+    private fun newViewModel(): EditorViewModel {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val file = java.io.File(app.filesDir, "projects/current_project.json")
+        file.parentFile?.mkdirs()
+        val project = Project(
+            id = "test-project",
+            tracks = listOf(
+                Track(id = "V1", name = "V1", type = TrackType.VIDEO, clips = listOf(
+                    TimelineClip(trackId = "V1", mediaUri = "file:///test.mp4", mediaName = "Test Clip", startTimeUs = 0L, durationUs = 10_000_000L, sourceDurationUs = 10_000_000L)
+                )),
+                Track(id = "V2", name = "V2", type = TrackType.VIDEO),
+                Track(id = "A1", name = "A1", type = TrackType.AUDIO),
+                Track(id = "A2", name = "A2", type = TrackType.AUDIO),
+                Track(id = "T1", name = "T1", type = TrackType.TEXT)
+            )
+        )
+        ProjectSerializer.saveProjectAtomically(file, project)
+        return EditorViewModel(app)
+    }
+
     @Test
     fun testTimecodeFormatting() {
         assertEquals("00:00:00:00", EditorViewModel.formatTimecode(0L, 30))
@@ -45,7 +71,7 @@ class EditorCommandAndUiTest {
 
     @Test
     fun testViewModelTransportAndShuttleCommands() {
-        val vm = EditorViewModel(ApplicationProvider.getApplicationContext<Application>())
+        val vm = newViewModel()
         assertFalse(vm.isPlaying.value)
         assertEquals(0L, vm.currentTimeUs.value)
 
