@@ -237,6 +237,7 @@ fun TimelinePanel(
             }
         }
     }
+    }
 }
 
 @Composable
