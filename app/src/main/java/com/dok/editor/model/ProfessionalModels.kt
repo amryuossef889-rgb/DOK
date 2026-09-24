@@ -48,6 +48,10 @@ data class MediaAsset(
     val proxyUri: String? = null
 )
 
+data class ExternalEffectAsset(val id: String = UUID.randomUUID().toString(), val name: String, val uri: String, val kind: String = "effect", val mimeType: String = "", val metadataJson: String = "")
+
+data class EffectPreset(val id: String = UUID.randomUUID().toString(), val name: String, val effectType: String, val intensity: Float = 1f, val parameters: Map<String, Float> = emptyMap(), val sourceUri: String? = null)
+
 data class AudioEffectConfig(
     val type: String,
     val enabled: Boolean = true,
