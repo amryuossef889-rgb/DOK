@@ -36,7 +36,6 @@ class ExternalEffectProjectTest {
             remove("effectLibrary")
         }
         val legacyJson = legacyObject.toString()
-        val migrated = runCatching { ProjectSerializer.deserializeFromJson(legacyJson) }
         val migrated = ProjectSerializer.deserializeFromJson(legacyJson)
         assertEquals(2, migrated.schemaVersion)
         assertTrue(migrated.effectLibrary.isEmpty())
