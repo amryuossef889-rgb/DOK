@@ -8,6 +8,17 @@ plugins {
   alias(libs.plugins.google.services)
 }
 
+tasks.register<Copy>("prepareDokLauncherIcon") {
+  val suppliedIcon = rootProject.file("IMG_20260924_161600.jpg")
+  from(suppliedIcon)
+  into(layout.projectDirectory.dir("src/main/res/drawable"))
+  rename { "dok_icon_image.jpg" }
+}
+
+tasks.named("preBuild").configure {
+  dependsOn("prepareDokLauncherIcon")
+}
+
 android {
   namespace = "com.dok.editor"
   compileSdk = 36
