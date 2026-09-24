@@ -72,7 +72,7 @@ fun EffectsLibraryPanel(
                         Text(asset.kind)
                     }
                     OutlinedButton(onClick = {
-                        if (asset.kind == "audio-sfx") onAddSoundEffect(Uri.parse(asset.uri), asset.name)
+                        if (asset.kind == "audio-sfx") onAddSoundEffect(asset)
                         else onAddToSelectedClip(asset)
                     }) { Text(if (asset.kind == "audio-sfx") "INSERT" else "ADD") }
                     OutlinedButton(onClick = {
