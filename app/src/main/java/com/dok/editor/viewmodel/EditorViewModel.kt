@@ -14,6 +14,9 @@ import com.dok.editor.engine.export.ExportPreset
 import com.dok.editor.history.UndoRedoManager
 import com.dok.editor.model.*
 import com.dok.editor.persistence.ProjectSerializer
+import com.dok.editor.render.PersistentRenderQueue
+import com.dok.editor.render.RenderJob
+import com.dok.editor.render.RenderJobSpec
 import java.io.File
 import org.json.JSONObject
 import com.dok.editor.media.MediaPool
@@ -33,6 +36,8 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     private val history = UndoRedoManager(50)
     private val mediaPool = MediaPool(application)
     private val recoveryManager = ProjectRecoveryManager(application)
+    private val renderQueue = PersistentRenderQueue(application, viewModelScope)
+    val renderQueueState: StateFlow<List<RenderJob>> = renderQueue.state
     private val projectFile = File(application.filesDir, "projects/current_project.json")
     private val restoredProject: Project? = runCatching {
         if (projectFile.exists()) ProjectSerializer.loadProject(projectFile) else null
@@ -83,6 +88,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         if (restoredProject == null) {
             persistProjectAsync(_project.value, snapshot = false)
         }
+        restoreRenderQueue()
     }
 
     private fun persistProjectAsync(project: Project, snapshot: Boolean) {
@@ -103,6 +109,66 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         autosaveRevision++
         persistProjectAsync(project, snapshot = autosaveRevision % 20 == 0)
     }
+
+    fun enqueueCurrentExport(preset: ExportPreset) {
+        val snapshot = _project.value
+        val jobId = java.util.UUID.randomUUID().toString()
+        val snapshotDir = File(getApplication<Application>().filesDir, "render-snapshots").apply { mkdirs() }
+        val snapshotFile = File(snapshotDir, jobId + ".json")
+        runCatching { snapshotFile.writeText(ProjectSerializer.serializeToJson(snapshot)) }.onFailure { return }
+        val spec = RenderJobSpec(
+            id = jobId,
+            name = snapshot.name + " • " + preset.name,
+            projectId = snapshot.id,
+            outputPath = "",
+            presetId = preset.id,
+            projectSnapshotPath = snapshotFile.absolutePath
+        )
+        viewModelScope.launch {
+            renderQueue.enqueue(spec) { progress ->
+                ExportPipeline(getApplication(), snapshot, preset).execute(
+                    onProgress = progress,
+                    onComplete = {},
+                    onError = { throw it }
+                )
+            }
+        }
+    }
+
+    fun startQueuedExports() {
+        viewModelScope.launch { renderQueue.startQueuedSequentially() }
+    }
+
+    fun cancelQueuedExport(id: String) { renderQueue.cancel(id) }
+
+    fun removeQueuedExport(id: String) {
+        viewModelScope.launch { renderQueue.remove(id) }
+    }
+
+    private fun restoreRenderQueue() {
+        viewModelScope.launch {
+            renderQueue.restoreSpecs().forEach { spec ->
+                val file = File(spec.projectSnapshotPath)
+                if (!file.exists()) return@forEach
+                val snap = runCatching { ProjectSerializer.deserializeFromJson(file.readText()) }.getOrNull() ?: return@forEach
+                val preset = exportPresetById(spec.presetId) ?: return@forEach
+                renderQueue.enqueue(spec) { progress ->
+                    ExportPipeline(getApplication(), snap, preset).execute(
+                        onProgress = progress,
+                        onComplete = {},
+                        onError = { throw it }
+                    )
+                }
+            }
+        }
+    }
+
+    private fun exportPresetById(id: String): ExportPreset? = listOf(
+        ExportPreset.YOUTUBE_1080P_60,
+        ExportPreset.TIKTOK_SHORTS_1080P_60,
+        ExportPreset.GAMING_4K_30,
+        ExportPreset.FAST_720P_30
+    ).firstOrNull { it.id == id }
 
     fun setActivePanel(panel: EditorPanel) { _activePanel.value = panel }
     fun setSelectedExportPreset(preset: ExportPreset) { _selectedExportPreset.value = preset }
