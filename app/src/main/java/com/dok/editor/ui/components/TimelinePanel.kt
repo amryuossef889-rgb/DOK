@@ -82,11 +82,16 @@ fun TimelinePanel(
                 }
 
                 Box(
-                    Modifier.fillMaxSize().horizontalScroll(scroll).pointerInput(zoomLevel) {
-                        detectTransformGestures { _, _, zoomChange, _ ->
-                            if (abs(zoomChange - 1f) > 0.001f) onCommand(EditorCommand.ZoomTimeline((zoomChange - 1f) * gestureZoom))
+                    Modifier
+                        .fillMaxSize()
+                        .pointerInput(zoomLevel) {
+                            detectTransformGestures { _, _, zoomChange, _ ->
+                                if (abs(zoomChange - 1f) > 0.001f) {
+                                    onCommand(EditorCommand.ZoomTimeline((zoomChange - 1f) * gestureZoom))
+                                }
+                            }
                         }
-                    }
+                        .horizontalScroll(scroll)
                 ) {
                     Box(Modifier.width(totalWidth).fillMaxHeight()) {
                         Column(Modifier.fillMaxSize()) {
