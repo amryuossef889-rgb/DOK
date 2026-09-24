@@ -5,6 +5,7 @@ import com.dok.editor.model.Project
 import com.dok.editor.persistence.ProjectSerializer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.json.JSONObject
 import org.junit.Test
 
 class ExternalEffectProjectTest {
@@ -26,9 +27,11 @@ class ExternalEffectProjectTest {
         assertEquals("Film Look", restored.effectLibrary.single().name)
         assertEquals("lut", restored.effectLibrary.single().kind)
 
-        val legacy = json.replace("\"schemaVersion\": 2", "\"schemaVersion\": 1")
-            .replace("\"effectLibrary\": [\n    {\n      \"id\": \"effect-1\",", "\"effectLibraryRemoved\": [\n    {\n      \"id\": \"effect-1\",")
-        val migrated = ProjectSerializer.deserializeFromJson(legacy)
+        val legacyObject = JSONObject(json).apply {
+            put("schemaVersion", 1)
+            remove("effectLibrary")
+        }
+        val migrated = ProjectSerializer.deserializeFromJson(legacyObject.toString())
         assertEquals(2, migrated.schemaVersion)
         assertTrue(migrated.effectLibrary.isEmpty())
     }
