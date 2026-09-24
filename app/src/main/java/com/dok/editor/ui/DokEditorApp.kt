@@ -45,6 +45,7 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
     val exportState by viewModel.exportUiState.collectAsState()
     val exportProgress by viewModel.exportProgress.collectAsState()
     val preset by viewModel.selectedExportPreset.collectAsState()
+    val renderJobs by viewModel.renderQueueState.collectAsState()
     var settings by remember { mutableStateOf(false) }
     var shortcutSettings by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -141,7 +142,12 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                                         preset, exportState, exportProgress,
                                         viewModel::setSelectedExportPreset, viewModel::dispatch,
                                         onImportSrt = { srtImportPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) },
-                                        onExportSrt = { srtExportPicker.launch("DOK-subtitles.srt") }
+                                        onExportSrt = { srtExportPicker.launch("DOK-subtitles.srt") },
+                                        renderJobs = renderJobs,
+                                        onQueueExport = { viewModel.enqueueCurrentExport(preset) },
+                                        onStartQueue = viewModel::startQueuedExports,
+                                        onCancelQueue = viewModel::cancelQueuedExport,
+                                        onRemoveQueue = viewModel::removeQueuedExport
                                     )
                                     else -> {}
                                 }
