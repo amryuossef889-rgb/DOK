@@ -37,7 +37,7 @@ object AudioWaveformExtractor {
             var inputDone = false
             var outputDone = false
             var peakCount = 0L
-            var maxSeen = 1f
+            var maxSeen = 0.0001f
 
             while (!outputDone) {
                 if (!inputDone) {
@@ -66,20 +66,27 @@ object AudioWaveformExtractor {
                             buffer.position(info.offset)
                             buffer.limit(info.offset + info.size)
                             val sampleCount = info.size / 2
-                            var i = 0
+                            val channels = if (format.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) {
+                                format.getInteger(MediaFormat.KEY_CHANNEL_COUNT).coerceAtLeast(1)
+                            } else 1
+                            val frameCount = sampleCount / channels
+                            var frame = 0
                             val startUs = info.presentationTimeUs.coerceAtLeast(0L)
-                            while (i + 1 < sampleCount) {
-                                val lo = buffer.get().toInt() and 0xff
-                                val hi = buffer.get().toInt()
-                                val sample = ((hi shl 8) or lo).toShort()
-                                val amplitude = abs(sample.toInt()).toFloat() / 32768f
-                                val sampleRate = if (format.containsKey(MediaFormat.KEY_SAMPLE_RATE)) format.getInteger(MediaFormat.KEY_SAMPLE_RATE) else 48_000
-                                val timeUs = startUs + (i.toLong() * 1_000_000L / max(1, sampleRate))
+                            val sampleRate = if (format.containsKey(MediaFormat.KEY_SAMPLE_RATE)) format.getInteger(MediaFormat.KEY_SAMPLE_RATE) else 48_000
+                            while (frame < frameCount && buffer.remaining() >= channels * 2) {
+                                var framePeak = 0f
+                                repeat(channels) {
+                                    val lo = buffer.get().toInt() and 0xff
+                                    val hi = buffer.get().toInt()
+                                    val sample = ((hi shl 8) or lo).toShort()
+                                    framePeak = max(framePeak, abs(sample.toInt()).toFloat() / 32768f)
+                                }
+                                val timeUs = startUs + (frame.toLong() * 1_000_000L / max(1, sampleRate))
                                 val index = ((timeUs.toDouble() / durationUs.toDouble()) * bars).toInt().coerceIn(0, bars - 1)
-                                peaks[index] = max(peaks[index], amplitude)
-                                maxSeen = max(maxSeen, amplitude)
+                                peaks[index] = max(peaks[index], framePeak)
+                                maxSeen = max(maxSeen, framePeak)
                                 peakCount++
-                                i++
+                                frame++
                             }
                         }
                         codec.releaseOutputBuffer(output, false)
