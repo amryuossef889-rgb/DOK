@@ -29,7 +29,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     private val mediaPool = MediaPool(application)
     private val _mediaAssets = MutableStateFlow(mediaPool.all())
     val mediaAssets: StateFlow<List<MediaAsset>> = _mediaAssets.asStateFlow()
-    private val _project = MutableStateFlow(createEmptyProject())
+    private val _project = MutableStateFlow(createEmptyProject(mediaPool.all()))
     val project: StateFlow<Project> = _project.asStateFlow()
     private val _currentTimeUs = MutableStateFlow(0L)
     val currentTimeUs: StateFlow<Long> = _currentTimeUs.asStateFlow()
@@ -246,6 +246,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             )
             mediaPool.upsert(asset)
             _mediaAssets.value = mediaPool.all()
+            _project.value = _project.value.copy(mediaPool = mediaPool.all(), modifiedAtMs = System.currentTimeMillis())
 
             val duration = when {
                 isImage -> 5_000_000L
@@ -373,9 +374,10 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             val frames = ((timeUs % 1_000_000L) * fps / 1_000_000L).toInt()
             return "%02d:%02d:%02d:%02d".format(total / 3600, (total % 3600) / 60, total % 60, frames)
         }
-        fun createEmptyProject(): Project = Project(
+        fun createEmptyProject(mediaPool: List<MediaAsset> = emptyList()): Project = Project(
             name = "DOK • Untitled", width = 1920, height = 1080, fps = 30,
-            tracks = listOf(Track(id = "V1", name = "V1", type = TrackType.VIDEO), Track(id = "V2", name = "V2", type = TrackType.VIDEO), Track(id = "A1", name = "A1", type = TrackType.AUDIO), Track(id = "A2", name = "A2", type = TrackType.AUDIO), Track(id = "T1", name = "T1", type = TrackType.TEXT))
+            tracks = listOf(Track(id = "V1", name = "V1", type = TrackType.VIDEO), Track(id = "V2", name = "V2", type = TrackType.VIDEO), Track(id = "A1", name = "A1", type = TrackType.AUDIO), Track(id = "A2", name = "A2", type = TrackType.AUDIO), Track(id = "T1", name = "T1", type = TrackType.TEXT)),
+            mediaPool = mediaPool
         )
     }
 }
