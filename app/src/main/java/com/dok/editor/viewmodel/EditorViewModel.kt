@@ -487,7 +487,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                     val o = JSONObject(file.readText())
                     val type = EffectType.valueOf(o.optString("effectType"))
                     val params = mutableMapOf<String, Float>()
-                    o.optJSONObject("parameters")?.keys()?.forEach { key -> params[key] = o.getDouble("parameters").toFloat() }
+                    o.optJSONObject("parameters")?.let { po -> po.keys().forEach { key -> params[key] = po.optDouble(key).toFloat() } }
                     dispatch(EditorCommand.AddParametricEffect(
                         clipId,
                         Effect.ParametricEffect(effectType = type, intensity = o.optDouble("intensity", 1.0).toFloat(), params = params)
