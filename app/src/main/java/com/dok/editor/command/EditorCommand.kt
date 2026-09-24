@@ -36,6 +36,7 @@ sealed interface EditorCommand {
     data class UpdateColorGrading(val clipId: String, val colorParams: ColorGradingParams) : EditorCommand
     data class AddParametricEffect(val clipId: String, val effect: Effect.ParametricEffect) : EditorCommand
     data class RemoveEffect(val clipId: String, val effectId: String) : EditorCommand
+    data class AddEffectPreset(val clipId: String, val preset: com.dok.editor.model.EffectPreset) : EditorCommand
     data class SetClipTransitionIn(val clipId: String, val transition: TransitionConfig?) : EditorCommand
     data class SetClipTransitionOut(val clipId: String, val transition: TransitionConfig?) : EditorCommand
     object Undo : EditorCommand
