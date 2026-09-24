@@ -129,7 +129,7 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                                 when(panel) {
                                     EditorPanel.MEDIA_POOL -> MediaPoolPanel(mediaAssets, viewModel::dispatch)
                                     EditorPanel.INSPECTOR, EditorPanel.COLOR -> InspectorPanel(viewModel.getSelectedClip(),viewModel::dispatch)
-                                    EditorPanel.EFFECTS -> EffectsLibraryPanel(effectLibrary, viewModel::applyExternalEffectAsset, viewModel::insertExternalAudioEffect)
+                                    EditorPanel.EFFECTS -> EffectsLibraryPanel(effectLibrary, viewModel::applyExternalEffectAsset, viewModel::insertExternalAudioEffect, viewModel::addExternalEffectAsset, viewModel::removeExternalEffectAsset)
                                     EditorPanel.DELIVER -> DeliverPanel(preset,exportState,exportProgress,viewModel::setSelectedExportPreset,viewModel::dispatch)
                                     else -> {}
                                 }
@@ -152,7 +152,7 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                             EditorPanel.MEDIA_POOL -> MediaPoolPanel(mediaAssets, viewModel::dispatch)
                             EditorPanel.TIMELINE -> TimelinePanel(project,currentTimeUs,selectedClipId,snapping,zoom,canUndo,canRedo,inPoint,outPoint,viewModel::dispatch,Modifier.fillMaxSize())
                             EditorPanel.INSPECTOR, EditorPanel.COLOR -> InspectorPanel(viewModel.getSelectedClip(),viewModel::dispatch)
-                            EditorPanel.EFFECTS -> EffectsLibraryPanel(effectLibrary, viewModel::applyExternalEffectAsset)
+                            EditorPanel.EFFECTS -> EffectsLibraryPanel(effectLibrary, viewModel::applyExternalEffectAsset, viewModel::insertExternalAudioEffect, viewModel::addExternalEffectAsset, viewModel::removeExternalEffectAsset)
                             EditorPanel.DELIVER -> DeliverPanel(preset,exportState,exportProgress,viewModel::setSelectedExportPreset,viewModel::dispatch)
                         }
                     }
