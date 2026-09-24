@@ -20,7 +20,7 @@ class PersistentRenderQueue(
 
     suspend fun enqueue(
         spec: RenderJobSpec,
-        runner: suspend ((Float) -> Unit) -> Unit
+        runner: suspend (suspend (Float) -> Unit) -> Unit
     ) {
         queue.enqueue(RenderJob(spec.id, spec.name, runner))
         val persisted = store.load().filterNot { it.id == spec.id } + spec
