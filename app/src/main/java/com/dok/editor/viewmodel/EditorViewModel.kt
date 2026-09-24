@@ -128,7 +128,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             renderQueue.enqueue(spec) { progress ->
                 ExportPipeline(getApplication(), snapshot, preset).execute(
-                    onProgress = { value -> progress(value) },
+                    onProgress = progress,
                     onComplete = {},
                     onError = { throw it }
                 )
