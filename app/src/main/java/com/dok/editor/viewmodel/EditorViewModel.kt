@@ -267,7 +267,11 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             val info = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 MediaMetadataExtractor.extractInfo(getApplication(), uri, fallbackName)
             }
-            val mime = getApplication<Application>().contentResolver.getType(uri).orEmpty().lowercase()
+            val resolver = getApplication<Application>().contentResolver
+            val mime = resolver.getType(uri).orEmpty().lowercase()
+            val sourceSizeBytes = runCatching {
+                resolver.openAssetFileDescriptor(uri, "r")?.use { it.length.takeIf { length -> length > 0L } ?: 0L } ?: 0L
+            }.getOrDefault(0L)
             val isImage = mime.startsWith("image/")
             val isVideo = info.isVideo || isImage
             val isAudio = info.isAudio
@@ -281,6 +285,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 sampleRate = info.audioSampleRate,
                 channels = info.audioChannels,
                 codec = info.videoMime ?: info.audioMime ?: "",
+                sizeBytes = sourceSizeBytes,
                 isOffline = false
             ) ?: MediaAsset(
                 uri = uriString,
@@ -291,7 +296,8 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 fps = info.fps.toFloat(),
                 sampleRate = info.audioSampleRate,
                 channels = info.audioChannels,
-                codec = info.videoMime ?: info.audioMime ?: ""
+                codec = info.videoMime ?: info.audioMime ?: "",
+                sizeBytes = sourceSizeBytes
             )
             mediaPool.upsert(asset)
             _mediaAssets.value = mediaPool.all()
