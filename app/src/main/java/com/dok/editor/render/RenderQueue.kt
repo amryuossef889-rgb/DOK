@@ -26,7 +26,7 @@ data class RenderJobSpec(
 data class RenderJob(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
-    val run: suspend ((Float) -> Unit) -> Unit,
+    val run: suspend (suspend (Float) -> Unit) -> Unit,
     var progress: Float = 0f,
     var status: RenderStatus = RenderStatus.QUEUED,
     var error: String? = null
