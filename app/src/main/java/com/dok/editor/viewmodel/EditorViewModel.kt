@@ -119,7 +119,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             EditorCommand.ZoomToFit -> _zoomLevel.value = 1f
             is EditorCommand.ImportMediaClip -> importMedia(command.uri, command.name, command.durationUs)
             is EditorCommand.AddMediaAssetToTimeline -> mediaPool.find(command.assetId)?.let { asset ->
-                importMedia(asset.uri, asset.name, asset.durationUs)
+                importMedia(asset.uri, asset.name, asset.durationUs, command.startTimeUs)
             }
             is EditorCommand.RequestExport -> { _selectedExportPreset.value = command.preset; startExport(command.preset) }
             is EditorCommand.SetProjectSettings -> {
@@ -204,7 +204,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     private fun commit(p: Project) { history.pushState(_project.value); _project.value = p; syncHistory() }
     private fun syncHistory() { _canUndo.value = history.canUndo; _canRedo.value = history.canRedo }
 
-    private fun importMedia(uriString: String, fallbackName: String, fallbackDurationUs: Long) {
+    private fun importMedia(uriString: String, fallbackName: String, fallbackDurationUs: Long, startTimeOverrideUs: Long? = null) {
         val uri = Uri.parse(uriString)
         viewModelScope.launch {
             val info = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -244,7 +244,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 info.durationUs > 0L -> info.durationUs
                 else -> fallbackDurationUs.coerceAtLeast(1_000_000L)
             }
-            val startTime = _currentTimeUs.value
+            val startTime = (startTimeOverrideUs ?: _currentTimeUs.value).coerceAtLeast(0L)
 
             if (isAudio && !isVideo) {
                 val audioTrack = _project.value.tracks.firstOrNull { it.type == TrackType.AUDIO } ?: return@launch
