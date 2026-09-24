@@ -14,6 +14,14 @@ import java.util.UUID
 
 enum class RenderStatus { QUEUED, RUNNING, PAUSED, COMPLETED, FAILED, CANCELLED }
 
+data class RenderJobSpec(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val projectId: String,
+    val outputPath: String,
+    val presetId: String
+)
+
 data class RenderJob(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
@@ -35,6 +43,10 @@ class RenderQueue(
     private suspend fun publish() {
         _state.value = mutex.withLock { jobs.values.map { it.copy() } }
     }
+
+    suspend fun contains(id: String): Boolean = mutex.withLock { jobs.containsKey(id) }
+
+    suspend fun status(id: String): RenderStatus? = mutex.withLock { jobs[id]?.status }
 
     suspend fun enqueue(job: RenderJob) {
         mutex.withLock { jobs[job.id] = job }
