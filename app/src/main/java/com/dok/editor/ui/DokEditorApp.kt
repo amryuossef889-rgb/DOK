@@ -69,6 +69,12 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                 Key.B -> "B"
                 Key.Z -> "Z"
                 Key.Y -> "Y"
+                Key.DirectionLeft -> "Left"
+                Key.DirectionRight -> "Right"
+                Key.Delete -> "Delete"
+                Key.Backspace -> "Backspace"
+                Key.Plus, Key.Equals -> "+"
+                Key.Minus -> "-"
                 else -> null
             }
             val modifierPrefix = buildString {
@@ -83,11 +89,9 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                 }
             }
             when (e.key) {
-                Key.DirectionLeft -> { viewModel.dispatch(EditorCommand.StepFrames(-1)); true }
-                Key.DirectionRight -> { viewModel.dispatch(EditorCommand.StepFrames(1)); true }
-                Key.Equals, Key.Plus -> { viewModel.dispatch(EditorCommand.ZoomTimeline(.25f)); true }
-                Key.Minus -> { viewModel.dispatch(EditorCommand.ZoomTimeline(-.25f)); true }
-                Key.Delete, Key.Backspace -> { viewModel.dispatch(if (e.isShiftPressed) EditorCommand.RippleDeleteSelectedClip else EditorCommand.DeleteSelectedClip); true }
+                Key.Backspace -> {
+                    viewModel.dispatch(if (e.isShiftPressed) EditorCommand.RippleDeleteSelectedClip else EditorCommand.DeleteSelectedClip); true
+                }
                 else -> false
             }
         }.testTag("dok_editor_root")
