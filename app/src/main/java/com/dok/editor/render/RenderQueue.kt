@@ -5,6 +5,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.UUID
@@ -26,13 +29,39 @@ class RenderQueue(
     private val mutex = Mutex()
     private val jobs = LinkedHashMap<String, RenderJob>()
     private val active = HashMap<String, Job>()
+    private val _state = MutableStateFlow<List<RenderJob>>(emptyList())
+    val state: StateFlow<List<RenderJob>> = _state.asStateFlow()
+
+    private suspend fun publish() {
+        _state.value = mutex.withLock { jobs.values.map { it.copy() } }
+    }
 
     suspend fun enqueue(job: RenderJob) {
         mutex.withLock { jobs[job.id] = job }
+        publish()
     }
 
     suspend fun snapshot(): List<RenderJob> =
         mutex.withLock { jobs.values.map { it.copy() } }
+
+    suspend fun remove(id: String) {
+        active[id]?.cancel()
+        mutex.withLock { jobs.remove(id) }
+        publish()
+    }
+
+    suspend fun clearFinished() {
+        mutex.withLock { jobs.entries.removeIf { it.value.status == RenderStatus.COMPLETED || it.value.status == RenderStatus.CANCELLED } }
+        publish()
+    }
+
+    suspend fun startQueuedSequentially() {
+        while (true) {
+            val next = mutex.withLock { jobs.values.firstOrNull { it.status == RenderStatus.QUEUED }?.id } ?: break
+            start(next)
+            active[next]?.join()
+        }
+    }
 
     suspend fun start(id: String) {
         val job = mutex.withLock {
@@ -46,18 +75,22 @@ class RenderQueue(
             try {
                 job.run { progress ->
                     mutex.withLock { job.progress = progress.coerceIn(0f, 1f) }
+                    publish()
                 }
                 mutex.withLock {
                     job.status = RenderStatus.COMPLETED
                     job.progress = 1f
                 }
+                publish()
             } catch (_: CancellationException) {
                 mutex.withLock { job.status = RenderStatus.CANCELLED }
+                publish()
             } catch (t: Throwable) {
                 mutex.withLock {
                     job.status = RenderStatus.FAILED
                     job.error = t.message ?: t::class.java.simpleName
                 }
+                publish()
             } finally {
                 active.remove(id)
             }
@@ -76,6 +109,7 @@ class RenderQueue(
                 error = null
             }
         }
+        publish()
         start(id)
     }
 }
