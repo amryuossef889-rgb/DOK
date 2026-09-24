@@ -106,9 +106,13 @@ class ExportPipeline(
             fun writeOrQueueSample(isVideo: Boolean, byteBuf: ByteBuffer, info: MediaCodec.BufferInfo) {
                 if (muxerStarted) {
                     val track = if (isVideo) videoTrackIndex else audioTrackIndex
-                    byteBuf.position(0)
-                    byteBuf.limit(info.size.coerceAtMost(byteBuf.capacity()))
-                    muxer.writeSampleData(track, byteBuf, info)
+                    val start = info.offset.coerceIn(0, byteBuf.capacity())
+                    val end = (start + info.size).coerceAtMost(byteBuf.capacity())
+                    if (end > start) {
+                        byteBuf.position(start)
+                        byteBuf.limit(end)
+                        muxer.writeSampleData(track, byteBuf, info)
+                    }
                 } else {
                     // Critical rule: Buffer pending samples until all track formats are known
                     val bytes = ByteArray(info.size)
