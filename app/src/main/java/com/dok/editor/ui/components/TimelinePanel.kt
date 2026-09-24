@@ -3,6 +3,7 @@ package com.dok.editor.ui.components
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import coil.compose.AsyncImage
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -24,6 +25,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -220,6 +222,41 @@ private fun TimelineClipBlock(
         if (clip.linkedClipId != null) {
             Text("LINK", color = DokAccent, fontSize = 7.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp))
+        }
+    }
+}
+
+@Composable
+private fun ClipFrameThumbnail(clip: TimelineClip) {
+    val context = LocalContext.current
+    val isImage = remember(clip.mediaUri) {
+        context.contentResolver.getType(Uri.parse(clip.mediaUri)).orEmpty().startsWith("image/")
+    }
+    if (isImage) {
+        AsyncImage(
+            model = Uri.parse(clip.mediaUri),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            alpha = .52f
+        )
+    } else {
+        val bitmap by produceState<Bitmap?>(initialValue = null, key1 = clip.mediaUri) {
+            value = withContext(Dispatchers.IO) {
+                try {
+                    val retriever = MediaMetadataRetriever()
+                    retriever.setDataSource(Uri.parse(clip.mediaUri), emptyMap())
+                    val result = retriever.getFrameAtTime(
+                        clip.trimInUs.coerceAtLeast(0L),
+                        MediaMetadataRetriever.OPTION_CLOSEST_SYNC
+                    )
+                    retriever.release()
+                    result
+                } catch (_: Throwable) { null }
+            }
+        }
+        if (bitmap != null) {
+            Image(bitmap!!.asImageBitmap(), null, Modifier.fillMaxSize(), alpha = .42f)
         }
     }
 }
