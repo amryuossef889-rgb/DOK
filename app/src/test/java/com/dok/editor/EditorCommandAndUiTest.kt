@@ -47,7 +47,7 @@ class EditorCommandAndUiTest {
             id = "test-project",
             tracks = listOf(
                 Track(id = "V1", name = "V1", type = TrackType.VIDEO, clips = listOf(
-                    TimelineClip(trackId = "V1", mediaUri = "file:///test.mp4", mediaName = "Test Clip", startTimeUs = 0L, durationUs = 10_000_000L, sourceDurationUs = 10_000_000L)
+                    TimelineClip(trackId = "V1", mediaUri = "", mediaName = "Test Clip", startTimeUs = 0L, durationUs = 10_000_000L, sourceDurationUs = 10_000_000L)
                 )),
                 Track(id = "V2", name = "V2", type = TrackType.VIDEO),
                 Track(id = "A1", name = "A1", type = TrackType.AUDIO),
