@@ -50,5 +50,8 @@ class RenderQueueStore(context: Context) {
     }
 
     @Synchronized
+    fun remove(id: String) { save(load().filterNot { it.id == id }) }
+
+    @Synchronized
     fun clear() { if (file.exists()) file.delete() }
 }
