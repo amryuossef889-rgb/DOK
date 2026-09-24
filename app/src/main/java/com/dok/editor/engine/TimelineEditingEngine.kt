@@ -78,10 +78,6 @@ object TimelineEditingEngine {
 
         val existingIds = project.tracks.flatMap { it.clips }.mapTo(HashSet()) { it.id }
         var updated = splitClip(project, clip.id, splitTimeUs)
-        val leftA = updated.tracks.flatMap { it.clips }
-            .filter { !existingIds.contains(it.id) && it.trackId == clip.trackId }
-            .minByOrNull { it.startTimeUs } ?: return updated
-
         val afterVideoSplitIds = updated.tracks.flatMap { it.clips }.mapTo(HashSet()) { it.id }
         updated = splitClip(updated, linked.id, splitTimeUs)
         val newLinkedParts = updated.tracks.flatMap { it.clips }
