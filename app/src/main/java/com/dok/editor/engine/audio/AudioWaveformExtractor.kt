@@ -87,9 +87,9 @@ object AudioWaveformExtractor {
                 when (val outputIndex = codec.dequeueOutputBuffer(info, 10_000L)) {
                     MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                         val outputFormat = codec.outputFormat
-                        sampleRate = outputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE, sampleRate).coerceAtLeast(1)
-                        channels = outputFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT, channels).coerceAtLeast(1)
-                        encoding = outputFormat.getInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
+                        sampleRate = getIntegerCompat(outputFormat, MediaFormat.KEY_SAMPLE_RATE, sampleRate).coerceAtLeast(1)
+                        channels = getIntegerCompat(outputFormat, MediaFormat.KEY_CHANNEL_COUNT, channels).coerceAtLeast(1)
+                        encoding = getIntegerCompat(outputFormat, MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
                     }
                     MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
                     else -> if (outputIndex >= 0) {
