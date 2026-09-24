@@ -84,7 +84,7 @@ data class ProjectSettings(
 data class Project(
     val id: String = UUID.randomUUID().toString(), val name: String = "Untitled Edit",
     val width: Int = 1920, val height: Int = 1080, val fps: Int = 30, val schemaVersion: Int = 1,
-    val tracks: List<Track> = emptyList(), val createdAtMs: Long = System.currentTimeMillis(),
+    val tracks: List<Track> = emptyList(), val mediaPool: List<MediaAsset> = emptyList(), val createdAtMs: Long = System.currentTimeMillis(),
     val modifiedAtMs: Long = System.currentTimeMillis()
 ) {
     val settings: ProjectSettings get() = ProjectSettings(width, height, fps)
