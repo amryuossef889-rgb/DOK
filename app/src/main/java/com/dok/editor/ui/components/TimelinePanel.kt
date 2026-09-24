@@ -1,5 +1,6 @@
 package com.dok.editor.ui.components
 
+import android.content.ClipDescription
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
@@ -12,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -25,6 +27,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.draganddrop.DragAndDropEvent
+import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.draganddrop.mimeTypes
+import androidx.compose.ui.draganddrop.toAndroidDragEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -85,9 +91,34 @@ fun TimelinePanel(
                     }
                 }
 
+                val dropTarget = remember(pps, scroll.value, project.tracks, density) {
+                    object : DragAndDropTarget {
+                        override fun onDrop(event: DragAndDropEvent): Boolean {
+                            val androidEvent = event.toAndroidDragEvent()
+                            val clipData = androidEvent.clipData ?: return false
+                            if (clipData.itemCount == 0) return false
+                            val assetId = clipData.getItemAt(0).text?.toString()?.takeIf { it.isNotBlank() } ?: return false
+                            val xPx = androidEvent.x + scroll.value
+                            val yPx = androidEvent.y
+                            val rowTopPx = with(density) { 34.dp.toPx() }
+                            val rowHeightPx = with(density) { 66.dp.toPx() }
+                            val trackIndex = ((yPx - rowTopPx) / rowHeightPx).toInt()
+                            val targetTrack = project.tracks.getOrNull(trackIndex) ?: return false
+                            val startUs = ((xPx / density.density) / pps * 1_000_000L).toLong().coerceAtLeast(0L)
+                            onCommand(EditorCommand.AddMediaAssetToTimeline(assetId, startUs, targetTrack.id))
+                            return true
+                        }
+                    }
+                }
                 Box(
                     Modifier
                         .fillMaxSize()
+                        .dragAndDropTarget(
+                            shouldStartDragAndDrop = { event ->
+                                event.mimeTypes().contains(ClipDescription.MIMETYPE_TEXT_PLAIN)
+                            },
+                            target = dropTarget
+                        )
                         .pointerInput(zoomLevel) {
                             detectTransformGestures { _, _, zoomChange, _ ->
                                 if (abs(zoomChange - 1f) > 0.001f) {
