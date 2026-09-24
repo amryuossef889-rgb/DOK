@@ -61,6 +61,9 @@ class ExportPipeline(
                 throw IllegalStateException("Cannot export an empty timeline")
             }
             val totalDurationUs = project.totalDurationUs
+            require(preset.width > 0 && preset.height > 0) { "Export dimensions must be positive" }
+            require(preset.fps > 0) { "Export FPS must be positive" }
+            require(preset.audioSampleRate > 0) { "Export audio sample rate must be positive" }
             val totalFrames = kotlin.math.ceil((totalDurationUs.toDouble() / 1_000_000.0) * preset.fps).toLong().coerceAtLeast(1L)
 
             // Setup Video Encoder
@@ -207,7 +210,7 @@ class ExportPipeline(
             }
 
             // Encode Audio
-            val totalAudioFrames = ((totalDurationUs.toDouble() / 1_000_000.0) * preset.audioSampleRate).toLong()
+            val totalAudioFrames = ((totalDurationUs.toDouble() / 1_000_000.0) * preset.audioSampleRate).toLong().coerceAtLeast(1L)
             val chunkFrames = 2048
             var audioFrameCursor = 0L
             var audioOutputFrameCounter = 0L
