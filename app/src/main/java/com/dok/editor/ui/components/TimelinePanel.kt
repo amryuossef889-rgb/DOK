@@ -54,6 +54,7 @@ fun TimelinePanel(
 ) {
     val scroll = rememberScrollState()
     val density = LocalDensity.current
+    val latestCurrentTimeUs = rememberUpdatedState(currentTimeUs)
     var gestureZoom by remember { mutableFloatStateOf(zoomLevel) }
     LaunchedEffect(zoomLevel) { gestureZoom = zoomLevel }
     val pps = 72f * gestureZoom
@@ -189,7 +190,7 @@ fun TimelinePanel(
                                     var dragOffsetPx = 0f
                                     detectDragGestures(
                                         onDragStart = {
-                                            dragStartTimeUs = currentTimeUs
+                                            dragStartTimeUs = latestCurrentTimeUs.value
                                             dragOffsetPx = 0f
                                         },
                                         onDrag = { change, drag ->
