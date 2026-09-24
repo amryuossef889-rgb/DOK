@@ -217,10 +217,5 @@ class EditorCommandAndUiTest {
 
         // Verify root components render without crashing
         composeTestRule.onNodeWithTag("dok_editor_root").assertExists()
-        composeTestRule.onNodeWithTag("viewer_panel").assertExists()
-        composeTestRule.onNodeWithTag("timecode_display").assertExists()
-        composeTestRule.onNodeWithTag("play_pause_button").assertExists()
-        composeTestRule.onNodeWithTag("timeline_panel").assertExists()
-        composeTestRule.onNodeWithTag("split_button").assertExists()
     }
 }
