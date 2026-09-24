@@ -65,8 +65,8 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                 Key.J -> { viewModel.dispatch(EditorCommand.ShuttleReverse); true }
                 Key.K -> { viewModel.dispatch(EditorCommand.ShuttleStop); true }
                 Key.L -> { viewModel.dispatch(EditorCommand.ShuttleForward); true }
-                Key.LeftArrow -> { viewModel.dispatch(EditorCommand.StepFrames(-1)); true }
-                Key.RightArrow -> { viewModel.dispatch(EditorCommand.StepFrames(1)); true }
+                Key.DirectionLeft -> { viewModel.dispatch(EditorCommand.StepFrames(-1)); true }
+                Key.DirectionRight -> { viewModel.dispatch(EditorCommand.StepFrames(1)); true }
                 Key.Equals, Key.Plus -> { viewModel.dispatch(EditorCommand.ZoomTimeline(.25f)); true }
                 Key.Minus -> { viewModel.dispatch(EditorCommand.ZoomTimeline(-.25f)); true }
                 Key.B -> if (cm) { viewModel.dispatch(EditorCommand.SplitClipAtPlayhead); true } else false
