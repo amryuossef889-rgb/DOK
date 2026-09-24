@@ -65,7 +65,7 @@ fun TimelinePanel(
                 Spacer(Modifier.weight(1f))
                 Text(EditorViewModelFormat(currentTimeUs, project.fps), color = DokAccent, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                 Text(
-                    "${gestureZoom.coerceIn(.25f, 8f).format(2)}x • ${pps.toInt()} px/s",
+                    "%.2fx • %d px/s".format(gestureZoom.coerceIn(.25f, 8f), pps.toInt()),
                     color = DokSecondaryText, fontSize = 8.sp, fontFamily = FontFamily.Monospace
                 )
                 IconButton({ onCommand(EditorCommand.ZoomToFit) }, Modifier.size(34.dp)) { Icon(Icons.Default.FitScreen, "Fit", tint = DokPrimaryText) }
