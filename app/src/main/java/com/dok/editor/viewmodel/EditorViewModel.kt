@@ -387,6 +387,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         commit(_project.value.copy(tracks = _project.value.tracks.map { t -> t.copy(clips = t.clips.map { c -> if (c.id == id) fn(c) else c }) }, modifiedAtMs = System.currentTimeMillis()))
     }
     private fun commit(p: Project) { history.pushState(_project.value); _project.value = p; syncHistory(); markChanged(p) }
+    private fun commit(transform: (Project) -> Project) { commit(transform(_project.value)) }
     private fun syncHistory() { _canUndo.value = history.canUndo; _canRedo.value = history.canRedo }
 
     private fun importMedia(uriString: String, fallbackName: String, fallbackDurationUs: Long, startTimeOverrideUs: Long? = null, targetTrackId: String? = null) {
