@@ -31,7 +31,7 @@ object AudioWaveformExtractor {
             codec.configure(format, null, null, 0)
             codec.start()
             val peaks = FloatArray(bars)
-            val durationUs = format.getLong(MediaFormat.KEY_DURATION, 1L).coerceAtLeast(1L)
+            val durationUs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION).coerceAtLeast(1L) else 1L
             val timeoutUs = 10_000L
             val info = MediaCodec.BufferInfo()
             var inputDone = false
@@ -73,7 +73,8 @@ object AudioWaveformExtractor {
                                 val hi = buffer.get().toInt()
                                 val sample = ((hi shl 8) or lo).toShort()
                                 val amplitude = abs(sample.toInt()).toFloat() / 32768f
-                                val timeUs = startUs + (i.toLong() * 1_000_000L / max(1, format.getInteger(MediaFormat.KEY_SAMPLE_RATE, 48_000)))
+                                val sampleRate = if (format.containsKey(MediaFormat.KEY_SAMPLE_RATE)) format.getInteger(MediaFormat.KEY_SAMPLE_RATE) else 48_000
+                                val timeUs = startUs + (i.toLong() * 1_000_000L / max(1, sampleRate))
                                 val index = ((timeUs.toDouble() / durationUs.toDouble()) * bars).toInt().coerceIn(0, bars - 1)
                                 peaks[index] = max(peaks[index], amplitude)
                                 maxSeen = max(maxSeen, amplitude)
