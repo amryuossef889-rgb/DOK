@@ -166,6 +166,28 @@ fun TransformTabContent(
         Text("2D Transform", color = DokAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(12.dp))
 
+        InspectorSlider(
+            label = "Position X",
+            value = transform.positionX,
+            range = -1.0f..1.0f,
+            format = "%+.3f",
+            testTag = "slider_position_x",
+            onValueChange = { value ->
+                onCommand(EditorCommand.UpdateClipTransform(clip.id, transform.copy(positionX = value)))
+            }
+        )
+
+        InspectorSlider(
+            label = "Position Y",
+            value = transform.positionY,
+            range = -1.0f..1.0f,
+            format = "%+.3f",
+            testTag = "slider_position_y",
+            onValueChange = { value ->
+                onCommand(EditorCommand.UpdateClipTransform(clip.id, transform.copy(positionY = value)))
+            }
+        )
+
         // Scale X / Y
         InspectorSlider(
             label = "Scale",
@@ -214,6 +236,19 @@ fun TransformTabContent(
                         transform.copy(opacity = newOpacity)
                     )
                 )
+            }
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Text("Playback", color = DokAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        InspectorSlider(
+            label = "Speed",
+            value = clip.speed,
+            range = 0.1f..8.0f,
+            format = "%.2fx",
+            testTag = "slider_speed",
+            onValueChange = { value ->
+                onCommand(EditorCommand.ChangeClipSpeed(clip.id, value))
             }
         )
     }
