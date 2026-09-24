@@ -33,14 +33,14 @@ import kotlinx.coroutines.launch
 enum class EditorPanel { MEDIA_POOL, TIMELINE, INSPECTOR, COLOR, EFFECTS, DELIVER }
 enum class ExportUiState { IDLE, EXPORTING, SUCCESS, ERROR }
 
-class EditorViewModel(application: Application) : AndroidViewModel(application) {
+class EditorViewModel(application: Application, initialProject: Project? = null) : AndroidViewModel(application) {
     private val history = UndoRedoManager(50)
     private val mediaPool = MediaPool(application)
     private val recoveryManager = ProjectRecoveryManager(application)
     private val renderQueue = PersistentRenderQueue(application, viewModelScope)
     val renderQueueState: StateFlow<List<RenderJob>> = renderQueue.state
     private val projectFile = File(application.filesDir, "projects/current_project.json")
-    private val restoredProject: Project? = runCatching {
+    private val restoredProject: Project? = initialProject ?: runCatching {
         if (projectFile.exists()) ProjectSerializer.loadProject(projectFile) else null
     }.getOrNull()
     private val _mediaAssets = MutableStateFlow(restoredProject?.mediaPool ?: mediaPool.all())
