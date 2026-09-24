@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dok.editor.command.EditorCommand
 import com.dok.editor.engine.TimelineEditingEngine
+import com.dok.editor.engine.audio.AudioWaveformExtractor
 import com.dok.editor.engine.export.ExportPipeline
 import com.dok.editor.engine.export.ExportPreset
 import com.dok.editor.history.UndoRedoManager
@@ -165,12 +166,37 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.let { duration = it * 1000L }
         } catch (_: Throwable) {
         } finally { try { retriever.release() } catch (_: Throwable) {} }
-        val track = _project.value.tracks.firstOrNull { it.type == TrackType.VIDEO } ?: return
-        val start = _currentTimeUs.value
-        val clip = TimelineClip(trackId = track.id, mediaUri = uriString, mediaName = fallbackName, startTimeUs = start, durationUs = duration, sourceDurationUs = duration)
-        commit(_project.value.copy(tracks = _project.value.tracks.map { if (it.id == track.id) it.copy(clips = it.clips + clip) else it }, modifiedAtMs = System.currentTimeMillis()))
-        _selectedClipId.value = clip.id
-        seek(start)
+        val videoTrack = _project.value.tracks.firstOrNull { it.type == TrackType.VIDEO } ?: return
+        val audioTrack = _project.value.tracks.firstOrNull { it.type == TrackType.AUDIO }
+        val startTime = _currentTimeUs.value
+        val videoClip = TimelineClip(trackId = videoTrack.id, mediaUri = uriString, mediaName = fallbackName, startTimeUs = startTime, durationUs = duration, sourceDurationUs = duration)
+        val audioClip = audioTrack?.let { track ->
+            TimelineClip(trackId = track.id, mediaUri = uriString, mediaName = "$" + "{fallbackName} • Audio", startTimeUs = startTime, durationUs = duration, sourceDurationUs = duration, linkedClipId = videoClip.id)
+        }
+        commit(_project.value.copy(
+            tracks = _project.value.tracks.map { track ->
+                when {
+                    track.id == videoTrack.id -> track.copy(clips = track.clips + videoClip)
+                    audioClip != null && track.id == audioClip.trackId -> track.copy(clips = track.clips + audioClip)
+                    else -> track
+                }
+            },
+            modifiedAtMs = System.currentTimeMillis()
+        ))
+        _selectedClipId.value = videoClip.id
+        seek(startTime)
+        if (audioClip != null) viewModelScope.launch {
+            val waveform = AudioWaveformExtractor.extract(getApplication(), uri, 180)
+            if (waveform.isNotEmpty()) {
+                val current = _project.value
+                _project.value = current.copy(
+                    tracks = current.tracks.map { track -> track.copy(clips = track.clips.map { clip ->
+                        if (clip.id == videoClip.id || clip.id == audioClip.id) clip.copy(waveform = waveform) else clip
+                    }) },
+                    modifiedAtMs = System.currentTimeMillis()
+                )
+            }
+        }
     }
 
     private fun startExport(preset: ExportPreset) {
