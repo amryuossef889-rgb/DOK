@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -531,28 +533,79 @@ fun InspectorSlider(
     testTag: String,
     onValueChange: (Float) -> Unit
 ) {
-    var text by remember(value) { mutableStateOf(value.toString()) }
+    var text by remember(value) { mutableStateOf(formatInspectorValue(value)) }
+
+    fun applyNumeric(raw: String) {
+        text = raw
+        raw.toFloatOrNull()?.let { onValueChange(it.coerceIn(range.start, range.endInclusive)) }
+    }
+
+    fun nudge(delta: Float) {
+        val next = (value + delta).coerceIn(range.start, range.endInclusive)
+        text = formatInspectorValue(next)
+        onValueChange(next)
+    }
+
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(label, color = DokSecondaryText, fontSize = 11.sp)
-            androidx.compose.material3.OutlinedTextField(
-                value = text,
-                onValueChange = { input ->
-                    text = input
-                    input.toFloatOrNull()?.let { onValueChange(it.coerceIn(range.start, range.endInclusive)) }
-                },
-                singleLine = true,
-                textStyle = androidx.compose.ui.text.TextStyle(color = DokPrimaryText, fontSize = 10.sp, fontFamily = FontFamily.Monospace),
-                modifier = Modifier.width(92.dp).height(38.dp).testTag(testTag + "_numeric")
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = { nudge(-inspectorStep(range)) },
+                    modifier = Modifier.size(28.dp).testTag(testTag + "_decrease")
+                ) {
+                    Icon(Icons.Default.Remove, "Decrease", tint = DokSecondaryText, modifier = Modifier.size(14.dp))
+                }
+                androidx.compose.material3.OutlinedTextField(
+                    value = text,
+                    onValueChange = ::applyNumeric,
+                    singleLine = true,
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        color = DokPrimaryText,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace
+                    ),
+                    modifier = Modifier.width(92.dp).height(38.dp).testTag(testTag + "_numeric")
+                )
+                IconButton(
+                    onClick = { nudge(inspectorStep(range)) },
+                    modifier = Modifier.size(28.dp).testTag(testTag + "_increase")
+                ) {
+                    Icon(Icons.Default.Add, "Increase", tint = DokSecondaryText, modifier = Modifier.size(14.dp))
+                }
+            }
         }
         Slider(
             value = value.coerceIn(range.start, range.endInclusive),
-            onValueChange = { next -> text = next.toString(); onValueChange(next) },
+            onValueChange = { next ->
+                text = formatInspectorValue(next)
+                onValueChange(next)
+            },
             valueRange = range,
-            colors = SliderDefaults.colors(thumbColor = DokAccent, activeTrackColor = DokAccent, inactiveTrackColor = DokDivider),
+            colors = SliderDefaults.colors(
+                thumbColor = DokAccent,
+                activeTrackColor = DokAccent,
+                inactiveTrackColor = DokDivider
+            ),
             modifier = Modifier.testTag(testTag)
         )
         Text(format.format(value), color = DokSecondaryText, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
     }
 }
+
+private fun inspectorStep(range: ClosedFloatingPointRange<Float>): Float {
+    val span = range.endInclusive - range.start
+    return when {
+        span <= 0.25f -> 0.01f
+        span <= 2f -> 0.05f
+        span <= 20f -> 0.1f
+        else -> 1f
+    }
+}
+
+private fun formatInspectorValue(value: Float): String =
+    if (kotlin.math.abs(value) >= 10f) "%.2f".format(value) else "%.3f".format(value)
