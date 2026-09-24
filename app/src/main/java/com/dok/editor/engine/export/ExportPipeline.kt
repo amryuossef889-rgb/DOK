@@ -44,9 +44,9 @@ class ExportPipeline(
     )
 
     suspend fun execute(
-        onProgress: (Float) -> Unit,
-        onComplete: (Uri) -> Unit,
-        onError: (Throwable) -> Unit
+        onProgress: suspend (Float) -> Unit,
+        onComplete: suspend (Uri) -> Unit,
+        onError: suspend (Throwable) -> Unit
     ) = withContext(Dispatchers.Default) {
         val tempOutputFile = File(context.cacheDir, "export_${System.currentTimeMillis()}.mp4")
         var muxer: MediaMuxer? = null
