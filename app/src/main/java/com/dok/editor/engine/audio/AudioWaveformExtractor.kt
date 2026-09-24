@@ -54,8 +54,10 @@ object AudioWaveformExtractor {
 
             val durationUs = if (inputFormat.containsKey(MediaFormat.KEY_DURATION)) inputFormat.getLong(MediaFormat.KEY_DURATION) else 0L
             val safeDurationUs = durationUs.coerceAtLeast(1L)
-            var sampleRate = inputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE, 48_000).coerceAtLeast(1)
-            var channels = inputFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT, 2).coerceAtLeast(1)
+            var sampleRate = if (inputFormat.containsKey(MediaFormat.KEY_SAMPLE_RATE)) inputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE) else 48_000
+            sampleRate = sampleRate.coerceAtLeast(1)
+            var channels = if (inputFormat.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) inputFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT) else 2
+            channels = channels.coerceAtLeast(1)
             var encoding = AudioFormat.ENCODING_PCM_16BIT
 
             var inputDone = false
