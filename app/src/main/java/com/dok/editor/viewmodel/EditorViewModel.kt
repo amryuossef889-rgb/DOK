@@ -89,6 +89,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             is EditorCommand.TrimClipEnd -> trimEnd(command)
             is EditorCommand.MoveClip -> moveClipLinked(command)
             is EditorCommand.ChangeClipSpeed -> commit(TimelineEditingEngine.changeSpeed(_project.value, command.clipId, command.speed))
+            is EditorCommand.UpdateClipAudio -> updateClip(command.clipId) { it.copy(volumeDb = command.volumeDb, pan = command.pan) }
             is EditorCommand.UpdateClipTransform -> updateClip(command.clipId) { it.copy(transform = command.transform) }
             is EditorCommand.UpdateColorGrading -> updateClip(command.clipId) { it.copy(colorParams = command.colorParams) }
             is EditorCommand.AddParametricEffect -> updateClip(command.clipId) { it.copy(effects = it.effects + command.effect) }
