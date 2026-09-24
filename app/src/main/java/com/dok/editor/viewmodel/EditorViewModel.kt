@@ -186,7 +186,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         val startTime = _currentTimeUs.value
         val videoClip = TimelineClip(trackId = videoTrack.id, mediaUri = uriString, mediaName = fallbackName, startTimeUs = startTime, durationUs = duration, sourceDurationUs = duration)
         val audioClip = audioTrack?.let { track ->
-            TimelineClip(trackId = track.id, mediaUri = uriString, mediaName = "$" + "{fallbackName} • Audio", startTimeUs = startTime, durationUs = duration, sourceDurationUs = duration, linkedClipId = videoClip.id)
+            TimelineClip(trackId = track.id, mediaUri = uriString, mediaName = fallbackName + " • Audio", startTimeUs = startTime, durationUs = duration, sourceDurationUs = duration, linkedClipId = videoClip.id)
         }
         commit(_project.value.copy(
             tracks = _project.value.tracks.map { track ->
