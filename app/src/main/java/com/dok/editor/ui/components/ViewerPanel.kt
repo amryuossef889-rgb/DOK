@@ -27,7 +27,7 @@ fun ViewerPanel(
     project: Project, currentTimeUs: Long, isPlaying: Boolean, playbackSpeed: Float,
     onCommand: (EditorCommand) -> Unit, modifier: Modifier = Modifier, onSettings: () -> Unit = {}
 ) {
-    val clip = project.tracks.flatMap { it.clips }
+    val clip = project.tracks.filter { it.type == com.dok.editor.model.TrackType.VIDEO }.flatMap { it.clips }
         .filter { it.mediaUri.isNotBlank() && currentTimeUs >= it.startTimeUs && currentTimeUs < it.endTimeUs }
         .maxByOrNull { it.startTimeUs }
 
@@ -68,7 +68,7 @@ fun ViewerPanel(
                         }
                         if (clip != null) {
                             val desiredMs = ((currentTimeUs - clip.startTimeUs) / 1000L).toInt().coerceAtLeast(0)
-                            if (kotlin.math.abs(view.currentPosition - desiredMs) > 120) view.seekTo(desiredMs)
+                            if (!isPlaying && kotlin.math.abs(view.currentPosition - desiredMs) > 40) view.seekTo(desiredMs)
                             if (isPlaying && !view.isPlaying) view.start()
                             if (!isPlaying && view.isPlaying) view.pause()
                         } else if (view.isPlaying) view.pause()
