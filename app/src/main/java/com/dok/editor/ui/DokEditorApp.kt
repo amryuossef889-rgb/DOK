@@ -48,6 +48,7 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
     var settings by remember { mutableStateOf(false) }
     var shortcutSettings by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val effectLibrary = remember(context) { com.dok.editor.engine.effects.ExternalEffectLibrary(context) }
     val focus = remember { FocusRequester() }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -127,7 +128,8 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                             Box(Modifier.width(330.dp).fillMaxHeight()) {
                                 when(panel) {
                                     EditorPanel.MEDIA_POOL -> MediaPoolPanel(mediaAssets, viewModel::dispatch)
-                                    EditorPanel.INSPECTOR, EditorPanel.COLOR, EditorPanel.EFFECTS -> InspectorPanel(viewModel.getSelectedClip(),viewModel::dispatch)
+                                    EditorPanel.INSPECTOR, EditorPanel.COLOR -> InspectorPanel(viewModel.getSelectedClip(),viewModel::dispatch)
+                                    EditorPanel.EFFECTS -> EffectsLibraryPanel(effectLibrary, viewModel::applyExternalEffectAsset)
                                     EditorPanel.DELIVER -> DeliverPanel(preset,exportState,exportProgress,viewModel::setSelectedExportPreset,viewModel::dispatch)
                                     else -> {}
                                 }
@@ -149,7 +151,8 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                         when(panel) {
                             EditorPanel.MEDIA_POOL -> MediaPoolPanel(mediaAssets, viewModel::dispatch)
                             EditorPanel.TIMELINE -> TimelinePanel(project,currentTimeUs,selectedClipId,snapping,zoom,canUndo,canRedo,inPoint,outPoint,viewModel::dispatch,Modifier.fillMaxSize())
-                            EditorPanel.INSPECTOR, EditorPanel.COLOR, EditorPanel.EFFECTS -> InspectorPanel(viewModel.getSelectedClip(),viewModel::dispatch)
+                            EditorPanel.INSPECTOR, EditorPanel.COLOR -> InspectorPanel(viewModel.getSelectedClip(),viewModel::dispatch)
+                            EditorPanel.EFFECTS -> EffectsLibraryPanel(effectLibrary, viewModel::applyExternalEffectAsset)
                             EditorPanel.DELIVER -> DeliverPanel(preset,exportState,exportProgress,viewModel::setSelectedExportPreset,viewModel::dispatch)
                         }
                     }
