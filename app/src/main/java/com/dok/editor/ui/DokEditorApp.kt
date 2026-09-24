@@ -80,7 +80,7 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
             val modifierPrefix = buildString {
                 if (e.isCtrlPressed) append("Ctrl+")
                 if (e.isAltPressed) append("Alt+")
-                if (e.isShiftPressed && keyName !in setOf("Z")) append("Shift+")
+                if (e.isShiftPressed) append("Shift+")
             }
             if (keyName != null) {
                 ShortcutStore.commandFor(context, modifierPrefix + keyName)?.let {
@@ -88,12 +88,7 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                     return@onKeyEvent true
                 }
             }
-            when (e.key) {
-                Key.Backspace -> {
-                    viewModel.dispatch(if (e.isShiftPressed) EditorCommand.RippleDeleteSelectedClip else EditorCommand.DeleteSelectedClip); true
-                }
-                else -> false
-            }
+            false
         }.testTag("dok_editor_root")
     ) { padding ->
         BoxWithConstraints(Modifier.fillMaxSize().background(DokBackground).padding(padding)) {
@@ -148,7 +143,7 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                         NavigationBarItem(panel==EditorPanel.TIMELINE,{viewModel.setActivePanel(EditorPanel.TIMELINE)},{Icon(Icons.Default.ViewTimeline,"Edit")},label={Text("Edit")})
                         NavigationBarItem(panel==EditorPanel.INSPECTOR,{viewModel.setActivePanel(EditorPanel.INSPECTOR)},{Icon(Icons.Default.Tune,"Inspector")},label={Text("Inspect")})
                         NavigationBarItem(panel==EditorPanel.DELIVER,{viewModel.setActivePanel(EditorPanel.DELIVER)},{Icon(Icons.Default.FileDownload,"Deliver")},label={Text("Export")})
-                        NavigationBarItem(false,{picker.launch(arrayOf("video/*"))},{Icon(Icons.Default.AddCircle,"Import")},label={Text("Import")})
+                        NavigationBarItem(false,{picker.launch(arrayOf("video/*", "image/*", "audio/*"))},{Icon(Icons.Default.AddCircle,"Import")},label={Text("Import")})
                     }
                 }
             }
