@@ -34,6 +34,7 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
     val isPlaying by viewModel.isPlaying.collectAsState()
     val playbackSpeed by viewModel.playbackSpeed.collectAsState()
     val selectedClipId by viewModel.selectedClipId.collectAsState()
+    val mediaAssets by viewModel.mediaAssets.collectAsState()
     val snapping by viewModel.isSnappingEnabled.collectAsState()
     val zoom by viewModel.zoomLevel.collectAsState()
     val panel by viewModel.activePanel.collectAsState()
@@ -97,6 +98,7 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                 Row(Modifier.fillMaxSize()) {
                     NavigationRail(containerColor = DokSurfaceElevated, modifier = Modifier.width(70.dp)) {
                         Spacer(Modifier.height(8.dp))
+                        NavigationRailItem(panel == EditorPanel.MEDIA_POOL, { viewModel.setActivePanel(EditorPanel.MEDIA_POOL) }, { Icon(Icons.Default.VideoLibrary, "Media Pool") }, label={Text("Media",fontSize=9.sp)})
                         NavigationRailItem(panel == EditorPanel.TIMELINE, { viewModel.setActivePanel(EditorPanel.TIMELINE) }, { Icon(Icons.Default.ViewTimeline, "Timeline") }, label={Text("Edit",fontSize=9.sp)})
                         NavigationRailItem(panel == EditorPanel.INSPECTOR, { viewModel.setActivePanel(EditorPanel.INSPECTOR) }, { Icon(Icons.Default.Tune, "Inspector") }, label={Text("Inspect",fontSize=9.sp)})
                         NavigationRailItem(panel == EditorPanel.DELIVER, { viewModel.setActivePanel(EditorPanel.DELIVER) }, { Icon(Icons.Default.FileDownload, "Deliver") }, label={Text("Deliver",fontSize=9.sp)})
@@ -104,7 +106,17 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                         NavigationRailItem(false, { picker.launch(arrayOf("video/*", "image/*", "audio/*")) }, { Icon(Icons.Default.AddCircle, "Import") }, label={Text("Import",fontSize=9.sp)})
                     }
                     VerticalDivider(color=DokDivider)
-                    if (panel == EditorPanel.TIMELINE) {
+                    if (panel == EditorPanel.MEDIA_POOL) {
+                        Row(Modifier.weight(1f).fillMaxHeight()) {
+                            MediaPoolPanel(mediaAssets, viewModel::dispatch, Modifier.width(360.dp).fillMaxHeight())
+                            VerticalDivider(color=DokDivider)
+                            Column(Modifier.weight(1f).fillMaxHeight()) {
+                                ViewerPanel(project,currentTimeUs,isPlaying,playbackSpeed,viewModel::dispatch,Modifier.weight(1.15f).fillMaxWidth(),{settings=true})
+                                HorizontalDivider(color=DokDivider)
+                                TimelinePanel(project,currentTimeUs,selectedClipId,snapping,zoom,canUndo,canRedo,inPoint,outPoint,viewModel::dispatch,Modifier.weight(.85f).fillMaxWidth())
+                            }
+                        }
+                    } else if (panel == EditorPanel.TIMELINE) {
                         Column(Modifier.weight(1f).fillMaxHeight()) {
                             ViewerPanel(project,currentTimeUs,isPlaying,playbackSpeed,viewModel::dispatch,Modifier.weight(1.15f).fillMaxWidth(),{settings=true})
                             HorizontalDivider(color=DokDivider)
@@ -114,6 +126,7 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                         Row(Modifier.weight(1f).fillMaxHeight()) {
                             Box(Modifier.width(330.dp).fillMaxHeight()) {
                                 when(panel) {
+                                    EditorPanel.MEDIA_POOL -> MediaPoolPanel(mediaAssets, viewModel::dispatch)
                                     EditorPanel.INSPECTOR, EditorPanel.COLOR, EditorPanel.EFFECTS -> InspectorPanel(viewModel.getSelectedClip(),viewModel::dispatch)
                                     EditorPanel.DELIVER -> DeliverPanel(preset,exportState,exportProgress,viewModel::setSelectedExportPreset,viewModel::dispatch)
                                     else -> {}
@@ -134,12 +147,14 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                     HorizontalDivider(color=DokDivider)
                     Box(Modifier.weight(1f).fillMaxWidth()) {
                         when(panel) {
+                            EditorPanel.MEDIA_POOL -> MediaPoolPanel(mediaAssets, viewModel::dispatch)
                             EditorPanel.TIMELINE -> TimelinePanel(project,currentTimeUs,selectedClipId,snapping,zoom,canUndo,canRedo,inPoint,outPoint,viewModel::dispatch,Modifier.fillMaxSize())
                             EditorPanel.INSPECTOR, EditorPanel.COLOR, EditorPanel.EFFECTS -> InspectorPanel(viewModel.getSelectedClip(),viewModel::dispatch)
                             EditorPanel.DELIVER -> DeliverPanel(preset,exportState,exportProgress,viewModel::setSelectedExportPreset,viewModel::dispatch)
                         }
                     }
                     NavigationBar(containerColor=DokSurfaceElevated, modifier=Modifier.height(58.dp)) {
+                        NavigationBarItem(panel==EditorPanel.MEDIA_POOL,{viewModel.setActivePanel(EditorPanel.MEDIA_POOL)},{Icon(Icons.Default.VideoLibrary,"Media")},label={Text("Media")})
                         NavigationBarItem(panel==EditorPanel.TIMELINE,{viewModel.setActivePanel(EditorPanel.TIMELINE)},{Icon(Icons.Default.ViewTimeline,"Edit")},label={Text("Edit")})
                         NavigationBarItem(panel==EditorPanel.INSPECTOR,{viewModel.setActivePanel(EditorPanel.INSPECTOR)},{Icon(Icons.Default.Tune,"Inspector")},label={Text("Inspect")})
                         NavigationBarItem(panel==EditorPanel.DELIVER,{viewModel.setActivePanel(EditorPanel.DELIVER)},{Icon(Icons.Default.FileDownload,"Deliver")},label={Text("Export")})
