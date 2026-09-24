@@ -13,7 +13,6 @@ import com.dok.editor.model.Project
 import com.dok.editor.model.Track
 import com.dok.editor.model.TrackType
 import com.dok.editor.model.TimelineClip
-import com.dok.editor.persistence.ProjectSerializer
 import com.dok.editor.ui.DokEditorApp
 import com.dok.editor.ui.theme.DokEditorTheme
 import com.dok.editor.viewmodel.EditorPanel
@@ -41,10 +40,8 @@ class EditorCommandAndUiTest {
 
     private fun newViewModel(): EditorViewModel {
         val app = ApplicationProvider.getApplicationContext<Application>()
-        val file = java.io.File(app.filesDir, "projects/current_project.json")
-        file.parentFile?.mkdirs()
         val project = Project(
-            id = "test-project",
+            id = "test-project-${java.util.UUID.randomUUID()}",
             tracks = listOf(
                 Track(id = "V1", name = "V1", type = TrackType.VIDEO, clips = listOf(
                     TimelineClip(trackId = "V1", mediaUri = "", mediaName = "Test Clip", startTimeUs = 0L, durationUs = 10_000_000L, sourceDurationUs = 10_000_000L)
@@ -55,8 +52,7 @@ class EditorCommandAndUiTest {
                 Track(id = "T1", name = "T1", type = TrackType.TEXT)
             )
         )
-        ProjectSerializer.saveProjectAtomically(file, project)
-        return EditorViewModel(app)
+        return EditorViewModel(app, project)
     }
 
     @Test
