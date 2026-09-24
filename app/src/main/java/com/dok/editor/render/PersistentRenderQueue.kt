@@ -25,7 +25,7 @@ class PersistentRenderQueue(
 
     suspend fun remove(id: String) {
         queue.remove(id)
-        store.save(queue.snapshot().map { RenderJobSpec(it.id, it.name, "", "", "") })
+        store.remove(id)
     }
 
     fun cancel(id: String) = queue.cancel(id)
