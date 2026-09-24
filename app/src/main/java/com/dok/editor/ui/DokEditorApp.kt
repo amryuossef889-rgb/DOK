@@ -176,7 +176,12 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                                 preset, exportState, exportProgress,
                                 viewModel::setSelectedExportPreset, viewModel::dispatch,
                                 onImportSrt = { srtImportPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) },
-                                onExportSrt = { srtExportPicker.launch("DOK-subtitles.srt") }
+                                onExportSrt = { srtExportPicker.launch("DOK-subtitles.srt") },
+                                renderJobs = renderJobs,
+                                onQueueExport = { viewModel.enqueueCurrentExport(preset) },
+                                onStartQueue = viewModel::startQueuedExports,
+                                onCancelQueue = viewModel::cancelQueuedExport,
+                                onRemoveQueue = viewModel::removeQueuedExport
                             )
                         }
                     }
