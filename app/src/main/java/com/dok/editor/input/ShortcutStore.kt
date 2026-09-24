@@ -12,7 +12,13 @@ object ShortcutStore {
         "Forward" to "L",
         "Split" to "B",
         "Undo" to "Ctrl+Z",
-        "Redo" to "Ctrl+Shift+Z"
+        "Redo" to "Ctrl+Shift+Z",
+        "Step Back" to "Left",
+        "Step Forward" to "Right",
+        "Zoom In" to "+",
+        "Zoom Out" to "-",
+        "Delete" to "Delete",
+        "Ripple Delete" to "Shift+Delete"
     )
 
     fun all(context: Context): LinkedHashMap<String, String> {
@@ -40,6 +46,12 @@ object ShortcutStore {
                 "Split" -> EditorCommand.SplitClipAtPlayhead
                 "Undo" -> EditorCommand.Undo
                 "Redo" -> EditorCommand.Redo
+                "Step Back" -> EditorCommand.StepFrames(-1)
+                "Step Forward" -> EditorCommand.StepFrames(1)
+                "Zoom In" -> EditorCommand.ZoomTimeline(.25f)
+                "Zoom Out" -> EditorCommand.ZoomTimeline(-.25f)
+                "Delete" -> EditorCommand.DeleteSelectedClip
+                "Ripple Delete" -> EditorCommand.RippleDeleteSelectedClip
                 else -> null
             }
         }
