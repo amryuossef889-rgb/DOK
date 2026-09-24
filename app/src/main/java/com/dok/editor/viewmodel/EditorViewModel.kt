@@ -268,8 +268,14 @@ class EditorViewModel(application: Application, initialProject: Project? = null)
     private fun seek(value: Long) { _currentTimeUs.value = value.coerceIn(0L, _project.value.durationUs) }
     private fun nextShuttleSpeed(v: Float, forward: Boolean): Float {
         val sign = if (forward) 1f else -1f
-        val a = kotlin.math.abs(v)
-        return sign * when (a) { 1f -> 2f; 2f -> 4f; 4f -> 8f; else -> 1f }
+        val magnitude = kotlin.math.abs(v)
+        if (v == 0f || kotlin.math.sign(v) != sign) return sign
+        return sign * when (magnitude) {
+            1f -> 2f
+            2f -> 4f
+            4f -> 8f
+            else -> 1f
+        }
     }
     private fun startPlayback(speed: Float) {
         playbackJob?.cancel()
