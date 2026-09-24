@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.VideoFile
+import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
@@ -53,6 +54,8 @@ fun DeliverPanel(
     exportProgress: Float,
     onSelectPreset: (ExportPreset) -> Unit,
     onCommand: (EditorCommand) -> Unit,
+    onImportSrt: () -> Unit = {},
+    onExportSrt: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -104,6 +107,20 @@ fun DeliverPanel(
             Spacer(modifier = Modifier.height(16.dp))
             Divider(color = DokDivider, thickness = 1.dp)
             Spacer(modifier = Modifier.height(16.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onImportSrt) {
+                    Icon(Icons.Default.Subtitles, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text("IMPORT SRT", fontSize = 10.sp)
+                }
+                OutlinedButton(onClick = onExportSrt) {
+                    Icon(Icons.Default.Subtitles, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text("EXPORT SRT", fontSize = 10.sp)
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
 
             Text(
                 text = "Export Presets",
