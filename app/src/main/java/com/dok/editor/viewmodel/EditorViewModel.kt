@@ -14,6 +14,7 @@ import com.dok.editor.engine.export.ExportPreset
 import com.dok.editor.history.UndoRedoManager
 import com.dok.editor.model.*
 import com.dok.editor.persistence.ProjectSerializer
+import com.dok.editor.persistence.ProjectRecoveryManager
 import com.dok.editor.render.PersistentRenderQueue
 import com.dok.editor.render.RenderJob
 import com.dok.editor.render.RenderJobSpec
