@@ -11,7 +11,7 @@ object SrtSubtitleCodec {
     fun parse(input: String): List<SubtitleCue> {
         val normalized = input.replace("\r\n", "\n").replace("\r", "\n").trim()
         if (normalized.isEmpty()) return emptyList()
-        return normalized.split(Regex("\n\s*\n"))
+        return normalized.split(Regex("\\n\\s*\\n"))
             .mapNotNull { block ->
                 val lines = block.lines()
                 val timingIndex = lines.indexOfFirst { it.contains("-->") }
