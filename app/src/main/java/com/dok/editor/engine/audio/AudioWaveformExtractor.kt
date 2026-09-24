@@ -52,7 +52,8 @@ object AudioWaveformExtractor {
             val rmsSum = DoubleArray(bars)
             val rmsCount = LongArray(bars)
 
-            val durationUs = inputFormat.getLong(MediaFormat.KEY_DURATION, 0L).coerceAtLeast(1L)
+            val durationUs = if (inputFormat.containsKey(MediaFormat.KEY_DURATION)) inputFormat.getLong(MediaFormat.KEY_DURATION) else 0L
+            val safeDurationUs = durationUs.coerceAtLeast(1L)
             var sampleRate = inputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE, 48_000).coerceAtLeast(1)
             var channels = inputFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT, 2).coerceAtLeast(1)
             var encoding = AudioFormat.ENCODING_PCM_16BIT
