@@ -36,7 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.remember\nimport androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -87,7 +87,7 @@ fun DokEditorApp(
     val exportProgress by viewModel.exportProgress.collectAsState()
     val selectedExportPreset by viewModel.selectedExportPreset.collectAsState()
 
-    val focusRequester = remember { FocusRequester() }
+    val focusRequester = remember { FocusRequester() }\n    var showProjectSettings by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -446,3 +446,4 @@ fun DokEditorApp(
         }
     }
 }
+\n    if (showProjectSettings) {\n        ProjectSettingsDialog(project = project, onDismiss = { showProjectSettings = false }, onCommand = viewModel::dispatch)\n    }\n
