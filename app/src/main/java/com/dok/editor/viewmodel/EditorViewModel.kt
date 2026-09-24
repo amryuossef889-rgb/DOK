@@ -166,6 +166,14 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             is EditorCommand.AddMediaAssetToTimeline -> mediaPool.find(command.assetId)?.let { asset ->
                 importMedia(asset.uri, asset.name, asset.durationUs, command.startTimeUs, command.targetTrackId)
             }
+            is EditorCommand.ApplyExternalEffectAsset -> {
+                project.value.effectLibrary.firstOrNull { it.id == command.assetId }?.let { applyExternalEffectAsset(it, command.targetTimeUs) }
+            }
+            is EditorCommand.InsertSoundEffectAsset -> {
+                project.value.effectLibrary.firstOrNull { it.id == command.assetId }?.let {
+                    insertExternalAudioEffect(it, command.startTimeUs)
+                }
+            }
             is EditorCommand.RequestExport -> { _selectedExportPreset.value = command.preset; startExport(command.preset) }
             is EditorCommand.SetProjectSettings -> {
                 val w = command.width.coerceIn(144, 7680); val h = command.height.coerceIn(144, 7680); val fps = command.fps.coerceIn(1, 240)
