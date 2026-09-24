@@ -2,6 +2,7 @@ package com.dok.editor.ui.components
 
 import android.net.Uri
 import androidx.media3.common.MediaItem
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
@@ -26,6 +27,7 @@ import com.dok.editor.model.Project
 import com.dok.editor.ui.theme.*
 import com.dok.editor.viewmodel.EditorViewModel
 
+@OptIn(UnstableApi::class)
 @Composable
 fun ViewerPanel(
     project: Project, currentTimeUs: Long, isPlaying: Boolean, playbackSpeed: Float,
