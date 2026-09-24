@@ -95,7 +95,7 @@ class ExportForegroundService : Service() {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("Rendering Gaming Montage")
+            .setContentTitle("DOK Video Export")
             .setContentText(if (isIndeterminate) "Preparing media pipeline..." else "Exporting: $progressPercent%")
             .setProgress(100, progressPercent, isIndeterminate)
             .setOngoing(true)
@@ -171,7 +171,7 @@ class ExportForegroundService : Service() {
         val completedNotification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("Export Complete!")
-            .setContentText("Your gaming video has been saved to Movies/DokEditor")
+            .setContentText("Your video has been saved to Movies/DokEditor")
             .setContentIntent(openPendingIntent)
             .setAutoCancel(true)
             .build()
