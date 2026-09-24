@@ -12,6 +12,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import com.dok.editor.engine.audio.PcmMixer
+import com.dok.editor.engine.gpu.EglVideoCompositor
 import com.dok.editor.engine.audio.StreamingAudioDecoder
 import com.dok.editor.engine.plan.TimelineRenderPlan
 import com.dok.editor.engine.video.SequentialVideoDecoder
@@ -54,7 +55,7 @@ class ExportPipeline(
         var audioEncoder: MediaCodec? = null
 
         val audioDecoders = HashMap<String, StreamingAudioDecoder>()
-        val videoDecoders = HashMap<String, SequentialVideoDecoder>()
+        var compositor: EglVideoCompositor? = null
 
         try {
             if (project.totalDurationUs <= 0L) {
@@ -77,6 +78,7 @@ class ExportPipeline(
             videoEncoder.configure(videoFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             val inputSurface = videoEncoder.createInputSurface()
             videoEncoder.start()
+            compositor = EglVideoCompositor(context, inputSurface, preset.width, preset.height)
 
             // Setup Audio Encoder
             val audioFormat = MediaFormat.createAudioFormat(AUDIO_MIME, preset.audioSampleRate, 2).apply {
@@ -143,14 +145,14 @@ class ExportPipeline(
                 if (!coroutineContext.isActive) break
                 val frameTimeUs = (frameIdx * 1_000_000L) / preset.fps
 
-                // Use the exact same TimelineRenderPlan as Preview
+                // Shared render plan drives a real GPU composition pass.
                 val plan = TimelineRenderPlan.evaluateVideoAt(project, frameTimeUs)
+                val gpu = compositor ?: error("GPU compositor unavailable")
+                gpu.beginFrame()
                 for (frameInst in plan.frameInstructions) {
-                    val decoder = videoDecoders.getOrPut(frameInst.mediaUri) {
-                        SequentialVideoDecoder(context, Uri.parse(frameInst.mediaUri), inputSurface)
-                    }
-                    decoder.decodeFrameToPts(frameInst.mediaSourceTimeUs)
+                    gpu.renderLayer(frameInst.clipId, Uri.parse(frameInst.mediaUri), frameInst)
                 }
+                gpu.endFrame(frameTimeUs)
 
                 // Drain video encoder
                 var outIdx = videoEncoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_US)
