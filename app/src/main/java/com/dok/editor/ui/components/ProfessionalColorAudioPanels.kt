@@ -1,5 +1,8 @@
 package com.dok.editor.ui.components
 
+import kotlin.math.max
+import kotlin.math.min
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -8,6 +11,69 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
 import kotlin.math.sin
+
+/**
+ * Deterministic CPU scope extraction for preview diagnostics.
+ * Input is packed RGBA bytes normalized to 0..255.
+ */
+object ColorScopeCalculator {
+    fun waveform(rgba: ByteArray, bins: Int = 128): FloatArray {
+        require(bins > 0)
+        val out = FloatArray(bins)
+        val counts = IntArray(bins)
+        var i = 0
+        while (i + 3 < rgba.size) {
+            val r = rgba[i].toInt() and 0xff
+            val g = rgba[i + 1].toInt() and 0xff
+            val b = rgba[i + 2].toInt() and 0xff
+            val y = (0.2126f * r + 0.7152f * g + 0.0722f * b) / 255f
+            val bin = min(bins - 1, max(0, (y * (bins - 1)).toInt()))
+            out[bin] += y
+            counts[bin]++
+            i += 4
+        }
+        for (b in out.indices) if (counts[b] > 0) out[b] /= counts[b].toFloat()
+        return out
+    }
+
+    fun rgb(rgba: ByteArray, bins: Int = 128): FloatArray {
+        require(bins > 0)
+        val out = FloatArray(bins)
+        val counts = IntArray(bins)
+        var i = 0
+        while (i + 3 < rgba.size) {
+            val r = (rgba[i].toInt() and 0xff) / 255f
+            val g = (rgba[i + 1].toInt() and 0xff) / 255f
+            val b = (rgba[i + 2].toInt() and 0xff) / 255f
+            val luminance = (r + g + b) / 3f
+            val bin = min(bins - 1, max(0, (luminance * (bins - 1)).toInt()))
+            out[bin] += max(r, max(g, b))
+            counts[bin]++
+            i += 4
+        }
+        for (b in out.indices) if (counts[b] > 0) out[b] /= counts[b].toFloat()
+        return out
+    }
+
+    fun vectorscope(rgba: ByteArray, bins: Int = 128): FloatArray {
+        require(bins > 0)
+        val out = FloatArray(bins)
+        val counts = IntArray(bins)
+        var i = 0
+        while (i + 3 < rgba.size) {
+            val r = (rgba[i].toInt() and 0xff) / 255f
+            val g = (rgba[i + 1].toInt() and 0xff) / 255f
+            val b = (rgba[i + 2].toInt() and 0xff) / 255f
+            val chroma = ((max(r, max(g, b)) - min(r, min(g, b))) / 1f).coerceIn(0f, 1f)
+            val bin = min(bins - 1, max(0, (chroma * (bins - 1)).toInt()))
+            out[bin] += chroma
+            counts[bin]++
+            i += 4
+        }
+        for (b in out.indices) if (counts[b] > 0) out[b] /= counts[b].toFloat()
+        return out
+    }
+}
 
 @Composable
 fun ColorScopes(
