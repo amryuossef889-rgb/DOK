@@ -52,7 +52,7 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         uri?.let {
             try { context.contentResolver.takePersistableUriPermission(it, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Throwable) {}
-            viewModel.dispatch(EditorCommand.ImportMediaClip(it.toString(), it.lastPathSegment ?: "Video", 1_000_000L))
+            viewModel.dispatch(EditorCommand.ImportMediaClip(it.toString(), it.lastPathSegment ?: "Media", 1_000_000L))
         }
     }
 
@@ -102,7 +102,7 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
                         NavigationRailItem(panel == EditorPanel.INSPECTOR, { viewModel.setActivePanel(EditorPanel.INSPECTOR) }, { Icon(Icons.Default.Tune, "Inspector") }, label={Text("Inspect",fontSize=9.sp)})
                         NavigationRailItem(panel == EditorPanel.DELIVER, { viewModel.setActivePanel(EditorPanel.DELIVER) }, { Icon(Icons.Default.FileDownload, "Deliver") }, label={Text("Deliver",fontSize=9.sp)})
                         Spacer(Modifier.weight(1f))
-                        NavigationRailItem(false, { picker.launch(arrayOf("video/*")) }, { Icon(Icons.Default.AddCircle, "Import") }, label={Text("Import",fontSize=9.sp)})
+                        NavigationRailItem(false, { picker.launch(arrayOf("video/*", "image/*", "audio/*")) }, { Icon(Icons.Default.AddCircle, "Import") }, label={Text("Import",fontSize=9.sp)})
                     }
                     VerticalDivider(color=DokDivider)
                     if (panel == EditorPanel.TIMELINE) {
