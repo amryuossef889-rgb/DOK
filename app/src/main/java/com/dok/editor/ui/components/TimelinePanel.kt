@@ -179,13 +179,24 @@ fun TimelinePanel(
                         }
 
                         val playheadX = currentTimeUs / 1_000_000f * pps
-                        Box(Modifier.offset(x = playheadX.dp).fillMaxHeight().width(20.dp).pointerInput(currentTimeUs, pps) {
-                            detectDragGestures { change, drag ->
-                                change.consume()
-                                val deltaUs = with(density) { drag.x.toDp().value } / pps * 1_000_000L
-                                onCommand(EditorCommand.ScrubTo(currentTimeUs + deltaUs.toLong()))
-                            }
-                        }) {
+                        Box(
+                            Modifier
+                                .offset(x = playheadX.dp)
+                                .fillMaxHeight()
+                                .width(20.dp)
+                                .pointerInput(pps) {
+                                    detectDragGestures(
+                                        onDragStart = { },
+                                        onDrag = { change, drag ->
+                                            change.consume()
+                                            val deltaUs = with(density) {
+                                                drag.x.toDp().value / pps * 1_000_000L
+                                            }.toLong()
+                                            onCommand(EditorCommand.ScrubTo((currentTimeUs + deltaUs).coerceAtLeast(0L)))
+                                        }
+                                    )
+                                }
+                        ) {
                             Box(Modifier.align(Alignment.TopCenter).width(12.dp).height(16.dp).background(DokPlayhead, RoundedCornerShape(3.dp)))
                             Box(Modifier.align(Alignment.TopCenter).offset(y = 12.dp).width(2.dp).fillMaxHeight().background(DokPlayhead))
                         }
