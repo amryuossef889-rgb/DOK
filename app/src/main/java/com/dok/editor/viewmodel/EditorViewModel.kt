@@ -170,6 +170,22 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         ExportPreset.FAST_720P_30
     ).firstOrNull { it.id == id }
 
+    fun recoverySnapshots(): List<String> =
+        recoveryManager.snapshots(_project.value.id).map { it.name }
+
+    fun restoreRecoverySnapshot(fileName: String): Boolean {
+        val file = recoveryManager.snapshots(_project.value.id).firstOrNull { it.name == fileName } ?: return false
+        val restored = runCatching { ProjectSerializer.loadProject(file) }.getOrNull() ?: return false
+        history.clear()
+        _project.value = restored
+        _mediaAssets.value = restored.mediaPool
+        _selectedClipId.value = null
+        _currentTimeUs.value = 0L
+        syncHistory()
+        persistProjectAsync(restored, snapshot = false)
+        return true
+    }
+
     fun setActivePanel(panel: EditorPanel) { _activePanel.value = panel }
     fun setSelectedExportPreset(preset: ExportPreset) { _selectedExportPreset.value = preset }
 
