@@ -328,12 +328,7 @@ fun AudioTabContent(
             format = "%+.1f dB",
             testTag = "slider_volume",
             onValueChange = { v ->
-                onCommand(
-                    EditorCommand.UpdateClipTransform(
-                        clip.id,
-                        clip.transform // keeping transform, volume handled via update
-                    )
-                )
+                onCommand(EditorCommand.UpdateClipAudio(clip.id, v, clip.pan))
             }
         )
 
@@ -344,7 +339,7 @@ fun AudioTabContent(
             range = -1.0f..1.0f,
             format = "%+.2f",
             testTag = "slider_pan",
-            onValueChange = {}
+            onValueChange = { p -> onCommand(EditorCommand.UpdateClipAudio(clip.id, clip.volumeDb, p)) }
         )
     }
 }
@@ -501,30 +496,28 @@ fun InspectorSlider(
     testTag: String,
     onValueChange: (Float) -> Unit
 ) {
+    var text by remember(value) { mutableStateOf(value.toString()) }
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(label, color = DokSecondaryText, fontSize = 11.sp)
-            Text(
-                format.format(value),
-                color = DokPrimaryText,
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.SemiBold
+            androidx.compose.material3.OutlinedTextField(
+                value = text,
+                onValueChange = { input ->
+                    text = input
+                    input.toFloatOrNull()?.let { onValueChange(it.coerceIn(range.start, range.endInclusive)) }
+                },
+                singleLine = true,
+                textStyle = androidx.compose.ui.text.TextStyle(color = DokPrimaryText, fontSize = 10.sp, fontFamily = FontFamily.Monospace),
+                modifier = Modifier.width(92.dp).height(38.dp).testTag(testTag + "_numeric")
             )
         }
         Slider(
             value = value.coerceIn(range.start, range.endInclusive),
-            onValueChange = onValueChange,
+            onValueChange = { next -> text = next.toString(); onValueChange(next) },
             valueRange = range,
-            colors = SliderDefaults.colors(
-                thumbColor = DokAccent,
-                activeTrackColor = DokAccent,
-                inactiveTrackColor = DokDivider
-            ),
+            colors = SliderDefaults.colors(thumbColor = DokAccent, activeTrackColor = DokAccent, inactiveTrackColor = DokDivider),
             modifier = Modifier.testTag(testTag)
         )
+        Text(format.format(value), color = DokSecondaryText, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
     }
 }
