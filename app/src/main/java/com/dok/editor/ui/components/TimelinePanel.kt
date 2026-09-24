@@ -185,14 +185,24 @@ fun TimelinePanel(
                                 .fillMaxHeight()
                                 .width(20.dp)
                                 .pointerInput(pps) {
+                                    var dragStartTimeUs = 0L
+                                    var dragOffsetPx = 0f
                                     detectDragGestures(
-                                        onDragStart = { },
+                                        onDragStart = {
+                                            dragStartTimeUs = currentTimeUs
+                                            dragOffsetPx = 0f
+                                        },
                                         onDrag = { change, drag ->
                                             change.consume()
+                                            dragOffsetPx += drag.x
                                             val deltaUs = with(density) {
-                                                drag.x.toDp().value / pps * 1_000_000L
+                                                dragOffsetPx.toDp().value / pps * 1_000_000L
                                             }.toLong()
-                                            onCommand(EditorCommand.ScrubTo((currentTimeUs + deltaUs).coerceAtLeast(0L)))
+                                            onCommand(
+                                                EditorCommand.ScrubTo(
+                                                    (dragStartTimeUs + deltaUs).coerceAtLeast(0L)
+                                                )
+                                            )
                                         }
                                     )
                                 }
