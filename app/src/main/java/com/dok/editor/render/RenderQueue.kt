@@ -19,7 +19,8 @@ data class RenderJobSpec(
     val name: String,
     val projectId: String,
     val outputPath: String,
-    val presetId: String
+    val presetId: String,
+    val projectSnapshotPath: String = ""
 )
 
 data class RenderJob(
