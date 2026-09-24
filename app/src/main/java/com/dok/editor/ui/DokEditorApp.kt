@@ -446,3 +446,4 @@ fun DokEditorApp(
         }
     }
 }\n    if (showProjectSettings) {\n        ProjectSettingsDialog(project = project, onDismiss = { showProjectSettings = false }, onCommand = viewModel::dispatch)\n    }\n
+\nprivate fun contentResolverForPersist(activity: android.app.Activity, uri: android.net.Uri) {\n    activity.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)\n}\n
