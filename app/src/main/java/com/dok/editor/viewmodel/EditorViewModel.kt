@@ -481,9 +481,11 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             mediaPool = mediaPool
         )
     }
-    fun applyExternalEffectAsset(asset: ExternalEffectAsset) {
+    fun applyExternalEffectAsset(asset: ExternalEffectAsset, targetTimeUs: Long? = null) {
         addExternalEffectAsset(asset)
-        val clipId = _selectedClipId.value ?: return
+        val clipId = _selectedClipId.value
+            ?: targetTimeUs?.let { t -> _project.value.tracks.flatMap { it.clips }.firstOrNull { it.mediaUri.isNotBlank() && t in it.startTimeUs until it.endTimeUs }?.id }
+            ?: return
         val path = Uri.parse(asset.uri).path ?: return
         val file = File(path)
         when {
@@ -507,10 +509,17 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun insertExternalAudioEffect(asset: ExternalEffectAsset) {
+    fun insertExternalAudioEffect(asset: ExternalEffectAsset, startTimeUs: Long = _currentTimeUs.value) {
         addExternalEffectAsset(asset)
         val uri = Uri.parse(asset.uri)
-        importMedia(uri.toString(), asset.name, 1_000_000L, _currentTimeUs.value, null)
+        val durationFallback = runCatching {
+            val retriever = android.media.MediaMetadataRetriever()
+            retriever.setDataSource(getApplication<Application>(), uri)
+            val durationMs = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 1000L
+            retriever.release()
+            durationMs * 1000L
+        }.getOrDefault(1_000_000L)
+        importMedia(uri.toString(), asset.name, durationFallback, startTimeUs.coerceAtLeast(0L), null)
     }
 
     fun importSrtSubtitles(uri: Uri) {
