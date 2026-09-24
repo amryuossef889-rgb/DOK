@@ -93,7 +93,6 @@ object AudioWaveformExtractor {
                         if ((info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) outputDone = true
                     }
                 }
-                if (peakCount > 2_000_000L) break
             }
             codec.stop()
             codec.release()
