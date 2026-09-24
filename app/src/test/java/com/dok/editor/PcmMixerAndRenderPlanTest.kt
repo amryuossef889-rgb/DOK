@@ -1,6 +1,11 @@
 package com.dok.editor
 
 import com.dok.editor.engine.audio.PcmMixer
+import com.dok.editor.engine.nodes.NodeGraphExecutor
+import com.dok.editor.engine.nodes.NodeFrame
+import com.dok.editor.model.Node
+import com.dok.editor.model.NodeConnection
+import com.dok.editor.model.NodeGraph
 import com.dok.editor.engine.plan.TimelineRenderPlan
 import com.dok.editor.model.InterpolationType
 import com.dok.editor.model.Keyframe
@@ -205,6 +210,27 @@ class PcmMixerAndRenderPlanTest {
         assertEquals(500_000L, plan[0].fadeInUs)
         assertEquals(750_000L, plan[0].fadeOutUs)
         assertEquals(1.25f, plan[0].speed, 0.0001f)
+    }
+
+    @Test
+    fun testNodeGraphRejectsCycles() {
+        val a = Node(id = "a", type = "pass")
+        val b = Node(id = "b", type = "pass")
+        val graph = NodeGraph(
+            nodes = listOf(a, b),
+            connections = listOf(
+                NodeConnection("a", "out", "b", "in"),
+                NodeConnection("b", "out", "a", "in")
+            )
+        )
+        val frame = NodeFrame(FloatArray(4), 1, 1)
+        val executor = NodeGraphExecutor(mapOf("pass" to { _, _ -> frame }))
+        try {
+            executor.execute(graph, frame)
+            throw AssertionError("Expected cycle rejection")
+        } catch (expected: IllegalArgumentException) {
+            assertTrue(expected.message!!.contains("cycle"))
+        }
     }
 
 }
