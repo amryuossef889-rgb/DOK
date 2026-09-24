@@ -3,6 +3,9 @@ package com.dok.editor.ui.components
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import android.content.ClipData
+import android.view.View
+import androidx.compose.foundation.draganddrop.dragAndDropSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draganddrop.DragAndDropTransferData
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dok.editor.engine.effects.ExternalEffectLibrary
@@ -56,7 +60,14 @@ fun EffectsLibraryPanel(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(Modifier.weight(1f)) {
+                    Column(
+                        Modifier.weight(1f).dragAndDropSource { _ ->
+                            DragAndDropTransferData(
+                                ClipData.newPlainText("DOK_EFFECT_ASSET", asset.id),
+                                flags = View.DRAG_FLAG_GLOBAL
+                            )
+                        }
+                    ) {
                         Text(asset.name)
                         Text(asset.kind)
                     }
