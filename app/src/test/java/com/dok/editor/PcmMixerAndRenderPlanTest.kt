@@ -172,4 +172,39 @@ class PcmMixerAndRenderPlanTest {
         assertEquals(1, planAt2s.textInstructions.size)
         assertEquals("KILL FEED", planAt2s.textInstructions[0].text)
     }
+    @Test
+    fun testAudioPlanUsesRequestedSampleRateAndClipFadeMetadata() {
+        val clip = TimelineClip(
+            id = "a1",
+            trackId = "audio",
+            mediaUri = "content://test/audio",
+            startTimeUs = 1_000_000L,
+            durationUs = 4_000_000L,
+            trimInUs = 0L,
+            trimOutUs = 4_000_000L,
+            fadeInUs = 500_000L,
+            fadeOutUs = 750_000L,
+            speed = 1.25f
+        )
+        val project = Project(
+            tracks = listOf(
+                Track(id = "audio", name = "A1", type = TrackType.AUDIO, clips = listOf(clip))
+            )
+        )
+
+        val plan = TimelineRenderPlan.evaluateAudioRange(
+            project = project,
+            startFrame44k = 48_000L,
+            frameCount = 960,
+            targetSampleRate = 48_000
+        )
+
+        assertEquals(1, plan.size)
+        assertEquals(1_000_000L, plan[0].clipStartTimeUs)
+        assertEquals(4_000_000L, plan[0].clipDurationUs)
+        assertEquals(500_000L, plan[0].fadeInUs)
+        assertEquals(750_000L, plan[0].fadeOutUs)
+        assertEquals(1.25f, plan[0].speed, 0.0001f)
+    }
+
 }
