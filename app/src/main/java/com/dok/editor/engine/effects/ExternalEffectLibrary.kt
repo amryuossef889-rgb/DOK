@@ -24,7 +24,8 @@ class ExternalEffectLibrary(context: Context) {
     fun presets(): List<EffectPreset> = load().second
 
     @Synchronized
-    fun importAsset(context: Context, uri: Uri, name: String, kind: String = classify(name, mimeType), mimeType: String = context.contentResolver.getType(uri).orEmpty()): ExternalEffectAsset {
+    fun importAsset(context: Context, uri: Uri, name: String, mimeType: String = context.contentResolver.getType(uri).orEmpty(), kind: String? = null): ExternalEffectAsset {
+        val resolvedKind = kind ?: classify(name, mimeType)
         val id = UUID.randomUUID().toString()
         val safeName = name.replace(Regex("[^A-Za-z0-9._-]"), "_").ifBlank { "asset" }
         val target = File(root, id + "_" + safeName)
@@ -32,7 +33,7 @@ class ExternalEffectLibrary(context: Context) {
             requireNotNull(input) { "Cannot open external asset" }
             target.outputStream().use { output -> input.copyTo(output) }
         }
-        val asset = ExternalEffectAsset(id, name, target.toURI().toString(), kind, mimeType)
+        val asset = ExternalEffectAsset(id, name, target.toURI().toString(), resolvedKind, mimeType)
         val current = load()
         save(current.first + asset, current.second)
         return asset
