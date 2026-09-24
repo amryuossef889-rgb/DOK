@@ -10,7 +10,7 @@ plugins {
 
 android {
   namespace = "com.dok.editor"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  compileSdk = 36
 
   defaultConfig {
     applicationId = "com.aistudio.dokeditor.kxmpzq"
