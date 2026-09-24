@@ -172,7 +172,15 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     }
     private fun deleteSelected(ripple: Boolean) {
         val id = _selectedClipId.value ?: return
-        commit(if (ripple) TimelineEditingEngine.rippleDelete(_project.value, setOf(id)) else TimelineEditingEngine.liftDelete(_project.value, setOf(id)))
+        val clip = findClip(id) ?: return
+        val ids = buildSet {
+            add(id)
+            clip.linkedClipId?.let(::add)
+        }
+        commit(
+            if (ripple) TimelineEditingEngine.rippleDelete(_project.value, ids)
+            else TimelineEditingEngine.liftDelete(_project.value, ids)
+        )
         _selectedClipId.value = null
     }
     private fun moveClipLinked(command: EditorCommand.MoveClip) {
