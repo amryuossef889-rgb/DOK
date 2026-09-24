@@ -213,32 +213,46 @@ class ExportPipeline(
 
             while (audioFrameCursor < totalAudioFrames && coroutineContext.isActive) {
                 val framesThisChunk = minOf(chunkFrames.toLong(), totalAudioFrames - audioFrameCursor).toInt()
-                val instructions = TimelineRenderPlan.evaluateAudioRange(project, audioFrameCursor, framesThisChunk)
+                val instructions = TimelineRenderPlan.evaluateAudioRange(
+                    project,
+                    audioFrameCursor,
+                    framesThisChunk,
+                    preset.audioSampleRate
+                )
 
                 val mixed = FloatArray(framesThisChunk * 2)
                 for (inst in instructions) {
                     val dec = audioDecoders.getOrPut(inst.mediaUri) {
                         StreamingAudioDecoder(context, Uri.parse(inst.mediaUri))
                     }
-                    val sourceFramesNeeded = (inst.frameCount.toDouble() * inst.speed.toDouble())
-                        .toLong().coerceAtLeast(1L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt() + 2
+                    val sourceFramesNeeded = kotlin.math.ceil(
+                        inst.frameCount.toDouble() *
+                            inst.speed.toDouble() *
+                            PcmMixer.SAMPLE_RATE_44K.toDouble() /
+                            preset.audioSampleRate.toDouble()
+                    ).toLong().coerceAtLeast(2L)
+                        .coerceAtMost(Int.MAX_VALUE.toLong()).toInt() + 2
                     val decoded = dec.readFrames(inst.sourceStartFrame44k, sourceFramesNeeded)
-                    val speedAdjusted = if (inst.speed == 1.0f) {
-                        decoded
-                    } else {
-                        PcmMixer.resampleByAbsolutePosition(
-                            sourcePcm = decoded,
-                            sourceSampleRate = PcmMixer.SAMPLE_RATE_44K,
-                            absoluteOutputStartFrame = 0L,
-                            outputFrameCount = inst.frameCount,
-                            speed = inst.speed,
-                            targetSampleRate = PcmMixer.SAMPLE_RATE_44K
-                        )
-                    }
+                    val speedAdjusted = PcmMixer.resampleByAbsolutePosition(
+                        sourcePcm = decoded,
+                        sourceSampleRate = PcmMixer.SAMPLE_RATE_44K,
+                        absoluteOutputStartFrame = 0L,
+                        outputFrameCount = inst.frameCount,
+                        speed = inst.speed,
+                        targetSampleRate = preset.audioSampleRate
+                    )
                     val gL = inst.combinedLinearGain * inst.panGains.first
                     val gR = inst.combinedLinearGain * inst.panGains.second
                     for (k in 0 until minOf(inst.frameCount, framesThisChunk)) {
-                        val gain = inst.fadeMultiplier
+                        val timelineUs = (audioFrameCursor + k).toLong() * 1_000_000L /
+                            preset.audioSampleRate
+                        val gain = PcmMixer.calculateFadeEnvelope(
+                            currentPositionUs = timelineUs,
+                            clipStartTimeUs = inst.clipStartTimeUs,
+                            clipDurationUs = inst.clipDurationUs,
+                            fadeInUs = inst.fadeInUs,
+                            fadeOutUs = inst.fadeOutUs
+                        )
                         mixed[k * 2] += speedAdjusted[k * 2] * gL * gain
                         mixed[k * 2 + 1] += speedAdjusted[k * 2 + 1] * gR * gain
                     }
