@@ -68,7 +68,7 @@ fun TimelinePanel(
             Row(Modifier.fillMaxWidth().height(42.dp).background(DokSurfaceElevated).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("TIMELINE", color = DokPrimaryText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.width(8.dp))
-                IconButton({ onCommand(EditorCommand.SplitClipAtPlayhead) }, Modifier.size(34.dp)) { Icon(Icons.Default.ContentCut, "Razor", tint = DokPrimaryText) }
+                IconButton({ onCommand(EditorCommand.SplitClipAtPlayhead) }, Modifier.size(34.dp).testTag("split_button")) { Icon(Icons.Default.ContentCut, "Razor", tint = DokPrimaryText) }
                 IconButton({ onCommand(EditorCommand.DeleteSelectedClip) }, Modifier.size(34.dp)) { Icon(Icons.Default.Delete, "Delete", tint = if (selectedClipId != null) DokPrimaryText else DokSecondaryText) }
                 Text(if (isSnappingEnabled) "SNAP" else "FREE", color = if (isSnappingEnabled) DokAccent else DokSecondaryText, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onCommand(EditorCommand.ToggleSnapping) }.padding(6.dp))
                 Spacer(Modifier.weight(1f))
