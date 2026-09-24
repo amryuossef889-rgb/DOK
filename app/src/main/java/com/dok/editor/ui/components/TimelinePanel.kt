@@ -36,6 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.roundToInt
 
 @Composable
 fun TimelinePanel(
@@ -94,10 +95,29 @@ fun TimelinePanel(
                                 }
                             }) {
                                 val seconds = (duration / 1_000_000L).toInt()
+                                val majorStep = when {
+                                    pps >= 180f -> 1
+                                    pps >= 90f -> 2
+                                    pps >= 45f -> 5
+                                    else -> 10
+                                }
                                 for (s in 0..seconds) {
                                     val x = (s * pps).dp
-                                    Text(EditorViewModelFormat(s * 1_000_000L, project.fps).substring(3), color = DokSecondaryText, fontSize = 8.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.offset(x = x + 2.dp, y = 4.dp))
-                                    Box(Modifier.offset(x = x).width(1.dp).height(6.dp).background(DokDivider))
+                                    val major = s % majorStep == 0
+                                    if (major) {
+                                        Text(
+                                            EditorViewModelFormat(s * 1_000_000L, project.fps),
+                                            color = DokSecondaryText, fontSize = 8.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            modifier = Modifier.offset(x = x + 2.dp, y = 4.dp)
+                                        )
+                                    }
+                                    Box(
+                                        Modifier.offset(x = x)
+                                            .width(1.dp)
+                                            .height(if (major) 10.dp else 5.dp)
+                                            .background(DokDivider)
+                                    )
                                 }
                             }
 
@@ -137,22 +157,40 @@ private fun TimelineClipBlock(
     clip: TimelineClip, track: Track, selected: Boolean, x: Dp, width: Dp, pps: Float,
     density: Density, onSelect: () -> Unit, onMove: (Long) -> Unit
 ) {
+    var dragOffsetPx by remember(clip.id) { mutableFloatStateOf(0f) }
     var dragStartUs by remember(clip.id, clip.startTimeUs) { mutableLongStateOf(clip.startTimeUs) }
-    var dragDeltaPx by remember { mutableFloatStateOf(0f) }
+
+    val visualX = with(density) { x.toPx() } + dragOffsetPx
     Box(
-        Modifier.offset(x).width(width).height(58.dp).padding(vertical = 4.dp)
-            .background(if (selected) DokAccent.copy(.32f) else if (track.type == TrackType.VIDEO) Color(0xFF193E56) else Color(0xFF263F35), RoundedCornerShape(4.dp))
+        Modifier
+            .offset { IntOffset(visualX.roundToInt(), 0) }
+            .width(width)
+            .height(58.dp)
+            .padding(vertical = 4.dp)
+            .background(
+                if (selected) DokAccent.copy(.32f)
+                else if (track.type == TrackType.VIDEO) Color(0xFF193E56) else Color(0xFF263F35),
+                RoundedCornerShape(4.dp)
+            )
             .border(1.dp, if (selected) DokAccent else DokDivider, RoundedCornerShape(4.dp))
             .pointerInput(clip.id, clip.startTimeUs, pps) {
                 detectDragGestures(
-                    onDragStart = { dragStartUs = clip.startTimeUs; dragDeltaPx = 0f; onSelect() },
-                    onDragCancel = { dragDeltaPx = 0f },
-                    onDragEnd = { dragDeltaPx = 0f },
+                    onDragStart = {
+                        dragStartUs = clip.startTimeUs
+                        dragOffsetPx = 0f
+                        onSelect()
+                    },
+                    onDragCancel = { dragOffsetPx = 0f },
+                    onDragEnd = {
+                        val deltaUs = with(density) {
+                            dragOffsetPx.toDp().value / pps * 1_000_000L
+                        }.toLong()
+                        if (deltaUs != 0L) onMove((dragStartUs + deltaUs).coerceAtLeast(0L))
+                        dragOffsetPx = 0f
+                    },
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        dragDeltaPx += dragAmount.x
-                        val deltaUs = with(density) { dragDeltaPx.toDp().value / pps * 1_000_000L }.toLong()
-                        onMove((dragStartUs + deltaUs).coerceAtLeast(0L))
+                        dragOffsetPx += dragAmount.x
                     }
                 )
             }
@@ -166,7 +204,12 @@ private fun TimelineClipBlock(
                 val step = size.width / bars.size.coerceAtLeast(1)
                 bars.forEachIndexed { i, amplitude ->
                     val h = size.height * amplitude.coerceIn(.03f, 1f)
-                    drawLine(if (selected) DokAccent else Color(0xFF7AD69A), Offset(i * step, size.height / 2f - h / 2f), Offset(i * step, size.height / 2f + h / 2f), strokeWidth = max(1f, step * .55f))
+                    drawLine(
+                        if (selected) DokAccent else Color(0xFF7AD69A),
+                        Offset(i * step, size.height / 2f - h / 2f),
+                        Offset(i * step, size.height / 2f + h / 2f),
+                        strokeWidth = max(1f, step * .55f)
+                    )
                 }
             }
         }
@@ -174,24 +217,11 @@ private fun TimelineClipBlock(
             Text(clip.mediaName.ifBlank { "Clip" }, color = Color.White, fontSize = 9.sp, maxLines = 1)
             Text(EditorViewModelFormat(clip.durationUs, 30), color = Color.White.copy(.70f), fontSize = 8.sp, fontFamily = FontFamily.Monospace)
         }
-        if (clip.linkedClipId != null) Text("LINK", color = DokAccent, fontSize = 7.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp))
-    }
-}
-
-@Composable
-private fun ClipFrameThumbnail(clip: TimelineClip) {
-    val bitmap by produceState<Bitmap?>(initialValue = null, key1 = clip.mediaUri) {
-        value = withContext(Dispatchers.IO) {
-            try {
-                val retriever = MediaMetadataRetriever()
-                retriever.setDataSource(Uri.parse(clip.mediaUri), emptyMap())
-                val result = retriever.getFrameAtTime(clip.trimInUs.coerceAtLeast(0L), MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                retriever.release()
-                result
-            } catch (_: Throwable) { null }
+        if (clip.linkedClipId != null) {
+            Text("LINK", color = DokAccent, fontSize = 7.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp))
         }
     }
-    if (bitmap != null) Image(bitmap!!.asImageBitmap(), null, Modifier.fillMaxSize(), alpha = .42f)
 }
 
 private fun EditorViewModelFormat(us: Long, fps: Int): String {
