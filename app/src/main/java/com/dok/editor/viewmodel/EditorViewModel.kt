@@ -8,6 +8,7 @@ import com.dok.editor.command.EditorCommand
 import com.dok.editor.engine.TimelineEditingEngine
 import com.dok.editor.engine.audio.AudioWaveformExtractor
 import com.dok.editor.engine.media.MediaMetadataExtractor
+import com.dok.editor.engine.subtitle.SrtSubtitleCodec
 import com.dok.editor.engine.export.ExportPipeline
 import com.dok.editor.engine.export.ExportPreset
 import com.dok.editor.history.UndoRedoManager
@@ -502,6 +503,31 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         addExternalEffectAsset(asset)
         val uri = Uri.parse(asset.uri)
         importMedia(uri.toString(), asset.name, 1_000_000L, _currentTimeUs.value, null)
+    }
+
+    fun importSrtSubtitles(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val text = getApplication<Application>().contentResolver.openInputStream(uri)
+                ?.bufferedReader()?.use { it.readText() } ?: return@launch
+            val cues = SrtSubtitleCodec.parse(text)
+            if (cues.isEmpty()) return@launch
+            launch(Dispatchers.Main.immediate) {
+                commit { project ->
+                    val existing = project.tracks.firstOrNull { it.type == TrackType.TEXT }
+                    val trackId = existing?.id ?: "subtitles-" + java.util.UUID.randomUUID()
+                    val clips = cues.map { cue ->
+                        TimelineClip(
+                            trackId = trackId, mediaUri = "", mediaName = "SRT " + cue.index,
+                            startTimeUs = cue.startTimeUs,
+                            durationUs = (cue.endTimeUs - cue.startTimeUs).coerceAtLeast(1L),
+                            textOverlay = TextOverlayConfig(text = cue.text)
+                        )
+                    }
+                    if (existing == null) project.copy(tracks = project.tracks + Track(trackId, "Subtitles", TrackType.TEXT, clips = clips))
+                    else project.copy(tracks = project.tracks.map { if (it.id == trackId) it.copy(clips = it.clips + clips) else it })
+                }
+            }
+        }
     }
 
     fun addExternalEffectAsset(asset: com.dok.editor.model.ExternalEffectAsset) {
