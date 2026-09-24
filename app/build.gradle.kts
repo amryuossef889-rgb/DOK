@@ -91,6 +91,7 @@ dependencies {
   implementation(libs.androidx.lifecycle.viewmodel.compose)
   implementation(libs.media3.exoplayer)
   implementation(libs.media3.ui)
+  implementation(libs.ffmpeg.kit.full)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
   implementation(libs.converter.moshi)
