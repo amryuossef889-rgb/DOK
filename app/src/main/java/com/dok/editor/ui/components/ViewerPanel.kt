@@ -1,8 +1,7 @@
-@file:OptIn(androidx.media3.common.util.UnstableApi::class)
-
 package com.dok.editor.ui.components
 
 import android.net.Uri
+import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
