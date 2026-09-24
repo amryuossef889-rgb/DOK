@@ -30,7 +30,7 @@ class ProfessionalEngineTest {
     }
 
     @Test fun advancedEngineMissingClipIsSafe() {
-        val project = EditorViewModel.createDefaultProject()
+        val project = EditorViewModel.createEmptyProject()
         val result = AdvancedTimelineEditingEngine.rollEdit(project, "missing-a", "missing-b", 10_000)
         assertTrue(result === project)
     }
