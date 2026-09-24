@@ -75,7 +75,7 @@ fun ViewerPanel(
                     if (clip != null) {
                         val targetMs = ((currentTimeUs - clip.startTimeUs) / 1000L).coerceAtLeast(0L)
                         val driftMs = kotlin.math.abs(player.currentPosition - targetMs)
-                        if (!isPlaying || driftMs > 120L) {
+                        if (driftMs > 80L) {
                             player.seekTo(targetMs)
                         }
                         if (isPlaying) player.play() else player.pause()
