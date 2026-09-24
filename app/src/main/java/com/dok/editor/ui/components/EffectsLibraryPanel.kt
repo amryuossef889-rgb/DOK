@@ -21,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dok.editor.engine.effects.ExternalEffectLibrary
 import com.dok.editor.model.ExternalEffectAsset
@@ -32,11 +33,12 @@ fun EffectsLibraryPanel(
     onAddSoundEffect: (Uri, String) -> Unit = { _, _ -> }
 ) {
     var assets by remember { mutableStateOf(library.all()) }
+    val context = LocalContext.current
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val name = uri.lastPathSegment?.substringAfterLast('/') ?: "Imported Effect"
             val asset = library.importAsset(
-                context = androidx.compose.ui.platform.LocalContext.current,
+                context = context,
                 uri = uri,
                 name = name,
                 kind = "external-effect"
