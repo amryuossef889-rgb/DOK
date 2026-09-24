@@ -49,7 +49,7 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.testTag\nimport androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -87,7 +87,7 @@ fun DokEditorApp(
     val exportProgress by viewModel.exportProgress.collectAsState()
     val selectedExportPreset by viewModel.selectedExportPreset.collectAsState()
 
-    val focusRequester = remember { FocusRequester() }\n    var showProjectSettings by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }\n    val context = LocalContext.current\n    var showProjectSettings by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -446,4 +446,4 @@ fun DokEditorApp(
         }
     }
 }\n    if (showProjectSettings) {\n        ProjectSettingsDialog(project = project, onDismiss = { showProjectSettings = false }, onCommand = viewModel::dispatch)\n    }\n
-\nprivate fun contentResolverForPersist(activity: android.app.Activity, uri: android.net.Uri) {\n    activity.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)\n}\n
+\nprivate fun contentResolverForPersist(context: android.content.Context, uri: android.net.Uri) {\n    context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)\n}\n
