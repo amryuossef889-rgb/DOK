@@ -205,6 +205,7 @@ object TimelineRenderPlan {
         val hasSoloTrack = project.tracks.any { it.isSolo }
 
         for (track in project.tracks) {
+            if (track.type != TrackType.AUDIO) continue
             if (track.isMuted) continue
             if (hasSoloTrack && !track.isSolo) continue
 
