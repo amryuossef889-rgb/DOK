@@ -57,7 +57,10 @@ class ExportPipeline(
         val videoDecoders = HashMap<String, SequentialVideoDecoder>()
 
         try {
-            val totalDurationUs = project.totalDurationUs.coerceAtLeast(1L)
+            if (project.totalDurationUs <= 0L) {
+                throw IllegalStateException("Cannot export an empty timeline")
+            }
+            val totalDurationUs = project.totalDurationUs
             val totalFrames = kotlin.math.ceil((totalDurationUs.toDouble() / 1_000_000.0) * preset.fps).toLong().coerceAtLeast(1L)
 
             // Setup Video Encoder
