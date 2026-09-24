@@ -57,8 +57,8 @@ class ExportPipeline(
         val videoDecoders = HashMap<String, SequentialVideoDecoder>()
 
         try {
-            val totalDurationUs = maxOf(1_000_000L, project.totalDurationUs) // at least 1s
-            val totalFrames = ((totalDurationUs.toDouble() / 1_000_000.0) * preset.fps).toLong().coerceAtLeast(1L)
+            val totalDurationUs = project.totalDurationUs.coerceAtLeast(1L)
+            val totalFrames = kotlin.math.ceil((totalDurationUs.toDouble() / 1_000_000.0) * preset.fps).toLong().coerceAtLeast(1L)
 
             // Setup Video Encoder
             val videoFormat = MediaFormat.createVideoFormat(VIDEO_MIME, preset.width, preset.height).apply {
