@@ -22,7 +22,8 @@ class RenderQueueStore(context: Context) {
                         name = o.optString("name"),
                         projectId = o.optString("projectId"),
                         outputPath = o.optString("outputPath"),
-                        presetId = o.optString("presetId")
+                        presetId = o.optString("presetId"),
+                        projectSnapshotPath = o.optString("projectSnapshotPath")
                     ))
                 }
             }
@@ -40,6 +41,7 @@ class RenderQueueStore(context: Context) {
                     put("projectId", spec.projectId)
                     put("outputPath", spec.outputPath)
                     put("presetId", spec.presetId)
+                    put("projectSnapshotPath", spec.projectSnapshotPath)
                 })
             }
         }.toString(2))
