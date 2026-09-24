@@ -23,14 +23,9 @@ class EditorInputMapper(
             KeyChord("J") to EditorCommand.ShuttleReverse,
             KeyChord("K") to EditorCommand.ShuttleStop,
             KeyChord("L") to EditorCommand.ShuttleForward,
-            KeyChord("I") to EditorCommand.SetInPointAtPlayhead,
-            KeyChord("O") to EditorCommand.SetOutPointAtPlayhead,
             KeyChord("B") to EditorCommand.SplitClipAtPlayhead,
-            KeyChord("A") to EditorCommand.ClearTool,
-            KeyChord("M") to EditorCommand.AddMarkerAtPlayhead,
             KeyChord("Z", ctrl = true) to EditorCommand.Undo,
-            KeyChord("Z", ctrl = true, shift = true) to EditorCommand.Redo,
-            KeyChord("S", ctrl = true) to EditorCommand.SaveProject
+            KeyChord("Z", ctrl = true, shift = true) to EditorCommand.Redo
         )
     }
 }
