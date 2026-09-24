@@ -56,10 +56,8 @@ object WaveformAndThumbnailService {
                 }
             }
         } catch (_: Exception) {
-            // Synthetic gaming audio waveform fallback for testing / corrupt headers
-            for (bin in 0 until binsCount) {
-                rmsBins[bin] = ((bin % 7) / 7.0f * 0.8f + 0.1f)
-            }
+            // A failed decode is represented as silence/empty data, never synthetic audio.
+            rmsBins.fill(0f)
         }
 
         waveformCache[cacheKey] = rmsBins
