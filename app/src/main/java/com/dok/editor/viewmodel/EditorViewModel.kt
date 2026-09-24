@@ -1,13 +1,15 @@
 package com.dok.editor.viewmodel
 
 import android.app.Application
-import android.media.MediaMetadataRetriever
+import android.content.ContentResolver
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dok.editor.command.EditorCommand
 import com.dok.editor.engine.TimelineEditingEngine
 import com.dok.editor.engine.audio.AudioWaveformExtractor
+import com.dok.editor.engine.media.MediaMetadataExtractor
 import com.dok.editor.engine.export.ExportPipeline
 import com.dok.editor.engine.export.ExportPreset
 import com.dok.editor.history.UndoRedoManager
@@ -174,43 +176,108 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun importMedia(uriString: String, fallbackName: String, fallbackDurationUs: Long) {
         val uri = Uri.parse(uriString)
-        val retriever = MediaMetadataRetriever()
-        var duration = fallbackDurationUs.coerceAtLeast(1_000_000L)
-        try {
-            retriever.setDataSource(getApplication<Application>(), uri)
-            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.let { duration = it * 1000L }
-        } catch (_: Throwable) {
-        } finally { try { retriever.release() } catch (_: Throwable) {} }
-        val videoTrack = _project.value.tracks.firstOrNull { it.type == TrackType.VIDEO } ?: return
-        val audioTrack = _project.value.tracks.firstOrNull { it.type == TrackType.AUDIO }
-        val startTime = _currentTimeUs.value
-        val videoClip = TimelineClip(trackId = videoTrack.id, mediaUri = uriString, mediaName = fallbackName, startTimeUs = startTime, durationUs = duration, sourceDurationUs = duration)
-        val audioClip = audioTrack?.let { track ->
-            TimelineClip(trackId = track.id, mediaUri = uriString, mediaName = fallbackName + " • Audio", startTimeUs = startTime, durationUs = duration, sourceDurationUs = duration, linkedClipId = videoClip.id)
-        }
-        val linkedVideoClip = videoClip.copy(linkedClipId = audioClip?.id)
-        commit(_project.value.copy(
-            tracks = _project.value.tracks.map { track ->
-                when {
-                    track.id == videoTrack.id -> track.copy(clips = track.clips + linkedVideoClip)
-                    audioClip != null && track.id == audioClip.trackId -> track.copy(clips = track.clips + audioClip)
-                    else -> track
-                }
-            },
-            modifiedAtMs = System.currentTimeMillis()
-        ))
-        _selectedClipId.value = linkedVideoClip.id
-        seek(startTime)
-        if (audioClip != null) viewModelScope.launch {
-            val waveform = AudioWaveformExtractor.extract(getApplication(), uri, 180)
-            if (waveform.isNotEmpty()) {
-                val current = _project.value
-                _project.value = current.copy(
-                    tracks = current.tracks.map { track -> track.copy(clips = track.clips.map { clip ->
-                        if (clip.id == linkedVideoClip.id || clip.id == audioClip.id) clip.copy(waveform = waveform) else clip
-                    }) },
-                    modifiedAtMs = System.currentTimeMillis()
+        viewModelScope.launch {
+            val info = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                MediaMetadataExtractor.extractInfo(getApplication(), uri, fallbackName)
+            }
+            val mime = getApplication<Application>().contentResolver.getType(uri).orEmpty().lowercase()
+            val isImage = mime.startsWith("image/")
+            val isVideo = info.isVideo || isImage
+            val isAudio = info.isAudio
+
+            val duration = when {
+                isImage -> 5_000_000L
+                info.durationUs > 0L -> info.durationUs
+                else -> fallbackDurationUs.coerceAtLeast(1_000_000L)
+            }
+            val startTime = _currentTimeUs.value
+
+            if (isAudio && !isVideo) {
+                val audioTrack = _project.value.tracks.firstOrNull { it.type == TrackType.AUDIO } ?: return@launch
+                val audioClip = TimelineClip(
+                    trackId = audioTrack.id,
+                    mediaUri = uriString,
+                    mediaName = fallbackName + " • Audio",
+                    startTimeUs = startTime,
+                    durationUs = duration,
+                    sourceDurationUs = duration
                 )
+                commit(_project.value.copy(
+                    tracks = _project.value.tracks.map { track ->
+                        if (track.id == audioTrack.id) track.copy(clips = track.clips + audioClip) else track
+                    },
+                    modifiedAtMs = System.currentTimeMillis()
+                ))
+                _selectedClipId.value = audioClip.id
+                seek(startTime)
+                launch {
+                    val waveform = AudioWaveformExtractor.extract(getApplication(), uri, 240)
+                    if (waveform.isNotEmpty()) {
+                        _project.value = _project.value.copy(
+                            tracks = _project.value.tracks.map { track ->
+                                track.copy(clips = track.clips.map { clip ->
+                                    if (clip.id == audioClip.id) clip.copy(waveform = waveform) else clip
+                                })
+                            },
+                            modifiedAtMs = System.currentTimeMillis()
+                        )
+                    }
+                }
+                return@launch
+            }
+
+            if (!isVideo) return@launch
+            val videoTrack = _project.value.tracks.firstOrNull { it.type == TrackType.VIDEO } ?: return@launch
+            val audioTrack = if (isAudio) _project.value.tracks.firstOrNull { it.type == TrackType.AUDIO } else null
+
+            val videoClip = TimelineClip(
+                trackId = videoTrack.id,
+                mediaUri = uriString,
+                mediaName = fallbackName,
+                startTimeUs = startTime,
+                durationUs = duration,
+                sourceDurationUs = duration
+            )
+            val audioClip = audioTrack?.let { track ->
+                TimelineClip(
+                    trackId = track.id,
+                    mediaUri = uriString,
+                    mediaName = fallbackName + " • Audio",
+                    startTimeUs = startTime,
+                    durationUs = duration,
+                    sourceDurationUs = duration,
+                    linkedClipId = videoClip.id
+                )
+            }
+            val linkedVideoClip = videoClip.copy(linkedClipId = audioClip?.id)
+
+            commit(_project.value.copy(
+                tracks = _project.value.tracks.map { track ->
+                    when {
+                        track.id == videoTrack.id -> track.copy(clips = track.clips + linkedVideoClip)
+                        audioClip != null && track.id == audioClip.trackId -> track.copy(clips = track.clips + audioClip)
+                        else -> track
+                    }
+                },
+                modifiedAtMs = System.currentTimeMillis()
+            ))
+            _selectedClipId.value = linkedVideoClip.id
+            seek(startTime)
+
+            if (audioClip != null) {
+                launch {
+                    val waveform = AudioWaveformExtractor.extract(getApplication(), uri, 240)
+                    if (waveform.isNotEmpty()) {
+                        _project.value = _project.value.copy(
+                            tracks = _project.value.tracks.map { track ->
+                                track.copy(clips = track.clips.map { clip ->
+                                    if (clip.id == audioClip.id) clip.copy(waveform = waveform) else clip
+                                })
+                            },
+                            modifiedAtMs = System.currentTimeMillis()
+                        )
+                    }
+                }
             }
         }
     }
