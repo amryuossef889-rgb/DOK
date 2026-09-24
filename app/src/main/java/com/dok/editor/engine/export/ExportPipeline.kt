@@ -106,6 +106,8 @@ class ExportPipeline(
             fun writeOrQueueSample(isVideo: Boolean, byteBuf: ByteBuffer, info: MediaCodec.BufferInfo) {
                 if (muxerStarted) {
                     val track = if (isVideo) videoTrackIndex else audioTrackIndex
+                    byteBuf.position(0)
+                    byteBuf.limit(info.size.coerceAtMost(byteBuf.capacity()))
                     muxer.writeSampleData(track, byteBuf, info)
                 } else {
                     // Critical rule: Buffer pending samples until all track formats are known
@@ -145,6 +147,8 @@ class ExportPipeline(
                 while (outIdx >= 0) {
                     val outBuf = videoEncoder.getOutputBuffer(outIdx)
                     if (outBuf != null && (bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0 && bufferInfo.size > 0) {
+                        outBuf.position(bufferInfo.offset)
+                        outBuf.limit((bufferInfo.offset + bufferInfo.size).coerceAtMost(outBuf.capacity()))
                         // Critical rule: derive PTS from output frame counter, not input index!
                         val ptsUs = (videoOutputFrames * 1_000_000L) / preset.fps
                         videoOutputFrames++
@@ -244,6 +248,8 @@ class ExportPipeline(
                 while (aOutIdx >= 0) {
                     val aOutBuf = audioEncoder.getOutputBuffer(aOutIdx)
                     if (aOutBuf != null && (audioBufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0 && audioBufferInfo.size > 0) {
+                        aOutBuf.position(audioBufferInfo.offset)
+                        aOutBuf.limit((audioBufferInfo.offset + audioBufferInfo.size).coerceAtMost(aOutBuf.capacity()))
                         writeOrQueueSample(false, aOutBuf, audioBufferInfo)
                     }
                     audioEncoder.releaseOutputBuffer(aOutIdx, false)
