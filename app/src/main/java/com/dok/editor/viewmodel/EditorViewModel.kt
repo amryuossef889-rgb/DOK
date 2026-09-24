@@ -174,7 +174,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     private fun splitAtPlayhead() {
         val clip = _selectedClipId.value?.let(::findClip) ?: _project.value.tracks.flatMap { it.clips }.find { _currentTimeUs.value in (it.startTimeUs + 1) until it.endTimeUs }
         if (clip != null && _currentTimeUs.value > clip.startTimeUs && _currentTimeUs.value < clip.endTimeUs) {
-            commit(TimelineEditingEngine.splitClip(_project.value, clip.id, _currentTimeUs.value))
+            commit(TimelineEditingEngine.splitLinkedClip(_project.value, clip.id, _currentTimeUs.value))
         }
     }
     private fun deleteSelected(ripple: Boolean) {
