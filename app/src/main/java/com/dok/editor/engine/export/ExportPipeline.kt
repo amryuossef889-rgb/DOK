@@ -15,7 +15,6 @@ import com.dok.editor.engine.audio.PcmMixer
 import com.dok.editor.engine.gpu.EglVideoCompositor
 import com.dok.editor.engine.audio.StreamingAudioDecoder
 import com.dok.editor.engine.plan.TimelineRenderPlan
-import com.dok.editor.engine.video.SequentialVideoDecoder
 import com.dok.editor.model.Project
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
@@ -339,7 +338,8 @@ class ExportPipeline(
             }
 
             // Close decoders and encoders
-            videoDecoders.values.forEach { it.close() }
+            compositor?.close()
+            compositor = null
             audioDecoders.values.forEach { it.close() }
 
             try { videoEncoder.stop(); videoEncoder.release() } catch (_: Exception) {}
@@ -358,6 +358,8 @@ class ExportPipeline(
             Log.e(TAG, "Export failed", t)
             withContext(Dispatchers.Main) { onError(t) }
         } finally {
+            runCatching { compositor?.close() }
+            compositor = null
             if (tempOutputFile.exists()) {
                 tempOutputFile.delete()
             }
