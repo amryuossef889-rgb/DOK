@@ -64,6 +64,10 @@ fun TimelinePanel(
                 Text(if (isSnappingEnabled) "SNAP" else "FREE", color = if (isSnappingEnabled) DokAccent else DokSecondaryText, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onCommand(EditorCommand.ToggleSnapping) }.padding(6.dp))
                 Spacer(Modifier.weight(1f))
                 Text(EditorViewModelFormat(currentTimeUs, project.fps), color = DokAccent, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                Text(
+                    "${gestureZoom.coerceIn(.25f, 8f).format(2)}x • ${pps.toInt()} px/s",
+                    color = DokSecondaryText, fontSize = 8.sp, fontFamily = FontFamily.Monospace
+                )
                 IconButton({ onCommand(EditorCommand.ZoomToFit) }, Modifier.size(34.dp)) { Icon(Icons.Default.FitScreen, "Fit", tint = DokPrimaryText) }
                 IconButton({ onCommand(EditorCommand.ZoomTimeline(-.25f)) }, Modifier.size(34.dp)) { Icon(Icons.Default.ZoomOut, "Zoom out", tint = DokPrimaryText) }
                 IconButton({ onCommand(EditorCommand.ZoomTimeline(.25f)) }, Modifier.size(34.dp)) { Icon(Icons.Default.ZoomIn, "Zoom in", tint = DokPrimaryText) }
