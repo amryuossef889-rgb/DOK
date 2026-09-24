@@ -368,7 +368,7 @@ private fun ClipFrameThumbnail(clip: TimelineClip) {
             value = withContext(Dispatchers.IO) {
                 try {
                     val retriever = MediaMetadataRetriever()
-                    retriever.setDataSource(Uri.parse(clip.mediaUri), emptyMap<String, String>())
+                    retriever.setDataSource(context, Uri.parse(clip.mediaUri))
                     val result = retriever.getFrameAtTime(clip.trimInUs.coerceAtLeast(0L))
                     retriever.release()
                     result
