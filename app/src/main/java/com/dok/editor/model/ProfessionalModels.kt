@@ -12,7 +12,7 @@ data class CropRect(
     val bottom: Float = 1f
 )
 
-data class ProjectSettings(
+data class ProfessionalProjectSettings(
     val pixelAspectRatio: Float = 1f,
     val audioSampleRate: Int = 48_000,
     val audioChannels: Int = 2,
