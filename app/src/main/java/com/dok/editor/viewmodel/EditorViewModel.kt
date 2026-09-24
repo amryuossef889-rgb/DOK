@@ -85,8 +85,10 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
                 ProjectSerializer.saveProjectAtomically(projectFile, project)
+                val json = ProjectSerializer.serializeToJson(project)
+                recoveryManager.autosave(project.id, json)
                 if (snapshot) {
-                    recoveryManager.snapshot(project.id, ProjectSerializer.serializeToJson(project))
+                    recoveryManager.snapshot(project.id, json)
                     recoveryManager.prune(project.id, keep = 20)
                 }
             }
