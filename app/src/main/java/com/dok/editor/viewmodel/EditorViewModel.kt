@@ -1,8 +1,6 @@
 package com.dok.editor.viewmodel
 
 import android.app.Application
-import android.content.ContentResolver
-import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -90,7 +88,18 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             is EditorCommand.TrimClipStart -> trimStart(command)
             is EditorCommand.TrimClipEnd -> trimEnd(command)
             is EditorCommand.MoveClip -> moveClipLinked(command)
-                is EditorCommand.MoveSelectedClip -> selectedClipId.value?.let { id -> project.value.tracks.flatMap { it.clips }.firstOrNull { it.id == id }?.let { c -> moveClipLinked(EditorCommand.MoveClip(id, (c.startTimeUs + command.deltaUs).coerceAtLeast(0L))) } }
+            is EditorCommand.MoveSelectedClip -> selectedClipId.value?.let { id ->
+                project.value.tracks.flatMap { it.clips }
+                    .firstOrNull { it.id == id }
+                    ?.let { clip ->
+                        moveClipLinked(
+                            EditorCommand.MoveClip(
+                                id,
+                                (clip.startTimeUs + command.deltaUs).coerceAtLeast(0L)
+                            )
+                        )
+                    }
+            }
             is EditorCommand.ChangeClipSpeed -> commit(TimelineEditingEngine.changeSpeed(_project.value, command.clipId, command.speed))
             is EditorCommand.UpdateClipAudio -> updateClip(command.clipId) { it.copy(volumeDb = command.volumeDb, pan = command.pan) }
             is EditorCommand.UpdateClipTransform -> updateClip(command.clipId) { it.copy(transform = command.transform) }
