@@ -231,8 +231,14 @@ class ExportPipeline(
                 PcmMixer.applySoftKneeLimiter(mixed)
                 val pcm16 = PcmMixer.floatToPcm16(mixed)
 
-                // Feed audio encoder
-                val inIdx = audioEncoder.dequeueInputBuffer(TIMEOUT_US)
+                // Feed audio encoder without dropping chunks when its input queue is temporarily full.
+                var inIdx = audioEncoder.dequeueInputBuffer(TIMEOUT_US)
+                var inputWaits = 0
+                while (inIdx < 0 && inputWaits < 50 && coroutineContext.isActive) {
+                    kotlinx.coroutines.delay(2L)
+                    inIdx = audioEncoder.dequeueInputBuffer(TIMEOUT_US)
+                    inputWaits++
+                }
                 if (inIdx >= 0) {
                     val inBuf = audioEncoder.getInputBuffer(inIdx)
                     if (inBuf != null) {
@@ -245,6 +251,8 @@ class ExportPipeline(
                         val flags = if (isLast) MediaCodec.BUFFER_FLAG_END_OF_STREAM else 0
                         audioEncoder.queueInputBuffer(inIdx, 0, bytesSize, ptsUs, flags)
                     }
+                } else {
+                    throw IllegalStateException("Audio encoder input stalled")
                 }
 
                 // Drain audio encoder
