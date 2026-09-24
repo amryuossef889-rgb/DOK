@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dok.editor.command.EditorCommand
 import com.dok.editor.ui.components.*
+import com.dok.editor.input.ShortcutStore
 import com.dok.editor.ui.theme.*
 import com.dok.editor.viewmodel.*
 
@@ -44,6 +45,7 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
     val exportProgress by viewModel.exportProgress.collectAsState()
     val preset by viewModel.selectedExportPreset.collectAsState()
     var settings by remember { mutableStateOf(false) }
+    var shortcutSettings by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val focus = remember { FocusRequester() }
 
@@ -59,20 +61,33 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
     Scaffold(
         modifier.fillMaxSize().focusRequester(focus).focusable().onKeyEvent { e ->
             if (e.type != KeyEventType.KeyDown) return@onKeyEvent false
-            val cm = e.isCtrlPressed || e.isMetaPressed
+            val keyName = when (e.key) {
+                Key.Spacebar -> "Space"
+                Key.J -> "J"
+                Key.K -> "K"
+                Key.L -> "L"
+                Key.B -> "B"
+                Key.Z -> "Z"
+                Key.Y -> "Y"
+                else -> null
+            }
+            val modifierPrefix = buildString {
+                if (e.isCtrlPressed) append("Ctrl+")
+                if (e.isAltPressed) append("Alt+")
+                if (e.isShiftPressed && keyName !in setOf("Z")) append("Shift+")
+            }
+            if (keyName != null) {
+                ShortcutStore.commandFor(context, modifierPrefix + keyName)?.let {
+                    viewModel.dispatch(it)
+                    return@onKeyEvent true
+                }
+            }
             when (e.key) {
-                Key.Spacebar -> { viewModel.dispatch(EditorCommand.TogglePlayPause); true }
-                Key.J -> { viewModel.dispatch(EditorCommand.ShuttleReverse); true }
-                Key.K -> { viewModel.dispatch(EditorCommand.ShuttleStop); true }
-                Key.L -> { viewModel.dispatch(EditorCommand.ShuttleForward); true }
                 Key.DirectionLeft -> { viewModel.dispatch(EditorCommand.StepFrames(-1)); true }
                 Key.DirectionRight -> { viewModel.dispatch(EditorCommand.StepFrames(1)); true }
                 Key.Equals, Key.Plus -> { viewModel.dispatch(EditorCommand.ZoomTimeline(.25f)); true }
                 Key.Minus -> { viewModel.dispatch(EditorCommand.ZoomTimeline(-.25f)); true }
-                Key.B -> if (cm) { viewModel.dispatch(EditorCommand.SplitClipAtPlayhead); true } else false
                 Key.Delete, Key.Backspace -> { viewModel.dispatch(if (e.isShiftPressed) EditorCommand.RippleDeleteSelectedClip else EditorCommand.DeleteSelectedClip); true }
-                Key.Z -> if (cm) { viewModel.dispatch(if (e.isShiftPressed) EditorCommand.Redo else EditorCommand.Undo); true } else false
-                Key.Y -> if (cm) { viewModel.dispatch(EditorCommand.Redo); true } else false
                 else -> false
             }
         }.testTag("dok_editor_root")
@@ -135,5 +150,6 @@ fun DokEditorApp(viewModel: EditorViewModel = viewModel(), modifier: Modifier = 
             }
         }
     }
-    if (settings) ProjectSettingsDialog(project,{settings=false},viewModel::dispatch)
+    if (settings) ProjectSettingsDialog(project,{settings=false},viewModel::dispatch,{shortcutSettings=true})
+    if (shortcutSettings) ShortcutSettingsDialog(context,{shortcutSettings=false})
 }
