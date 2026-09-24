@@ -34,7 +34,7 @@ import com.dok.editor.model.ExternalEffectAsset
 fun EffectsLibraryPanel(
     library: ExternalEffectLibrary,
     onAddToSelectedClip: (ExternalEffectAsset) -> Unit,
-    onAddSoundEffect: (Uri, String) -> Unit = { _, _ -> },
+    onAddSoundEffect: (ExternalEffectAsset) -> Unit = {},
     onImportedAsset: (ExternalEffectAsset) -> Unit = {},
     onRemovedAsset: (String) -> Unit = {}
 ) {
@@ -61,7 +61,7 @@ fun EffectsLibraryPanel(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(
-                        Modifier.weight(1f).dragAndDropSource { _ ->
+                        Modifier.weight(1f).dragAndDropSource {
                             DragAndDropTransferData(
                                 ClipData.newPlainText("DOK_EFFECT_ASSET", asset.id),
                                 flags = View.DRAG_FLAG_GLOBAL
