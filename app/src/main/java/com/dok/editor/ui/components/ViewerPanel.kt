@@ -57,7 +57,7 @@ fun ViewerPanel(
                     onDispose { player.release() }
                 }
 
-                LaunchedEffect(clip?.mediaUri) {
+                LaunchedEffect(clip?.id, clip?.mediaUri) {
                     val uri = clip?.mediaUri
                     if (uri.isNullOrBlank()) {
                         player.stop()
@@ -65,22 +65,30 @@ fun ViewerPanel(
                     } else {
                         player.setMediaItem(MediaItem.fromUri(Uri.parse(uri)))
                         player.prepare()
-                        val localMs = ((currentTimeUs - (clip.startTimeUs)) / 1000L).coerceAtLeast(0L)
+                        val localMs = ((currentTimeUs - clip.startTimeUs) / 1000L).coerceAtLeast(0L)
                         player.seekTo(localMs)
-                        player.playWhenReady = isPlaying
                     }
                 }
 
+                LaunchedEffect(isPlaying, playbackSpeed, clip?.id) {
+                    if (clip == null) {
+                        player.pause()
+                    } else {
+                        player.setPlaybackSpeed(kotlin.math.abs(playbackSpeed).coerceIn(0.25f, 8f))
+                        if (isPlaying) player.play() else player.pause()
+                    }
+                }
+
+                // The editor clock advances independently while playing. Seeking ExoPlayer on
+                // every clock tick causes a seek storm (stutter, dropped frames and muted audio).
+                // Follow the editor clock only while paused/scrubbing; during playback ExoPlayer
+                // owns the media clock and renders/plays continuously.
                 LaunchedEffect(currentTimeUs, isPlaying, clip?.id) {
-                    if (clip != null) {
+                    if (clip != null && !isPlaying) {
                         val targetMs = ((currentTimeUs - clip.startTimeUs) / 1000L).coerceAtLeast(0L)
-                        val driftMs = kotlin.math.abs(player.currentPosition - targetMs)
-                        if (driftMs > 80L) {
+                        if (kotlin.math.abs(player.currentPosition - targetMs) > 20L) {
                             player.seekTo(targetMs)
                         }
-                        if (isPlaying) player.play() else player.pause()
-                    } else {
-                        player.pause()
                     }
                 }
 
