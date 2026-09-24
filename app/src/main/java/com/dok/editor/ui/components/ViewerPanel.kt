@@ -134,7 +134,7 @@ fun ViewerPanel(
                 IconButton({ onCommand(EditorCommand.JumpToStart) }) { Icon(Icons.Default.FirstPage, "Start", tint = DokPrimaryText) }
                 IconButton({ onCommand(EditorCommand.ShuttleReverse) }) { Icon(Icons.Default.FastRewind, "Reverse", tint = DokPrimaryText) }
                 IconButton({ onCommand(EditorCommand.StepFrames(-1)) }) { Icon(Icons.Default.SkipPrevious, "Previous frame", tint = DokPrimaryText) }
-                IconButton({ onCommand(EditorCommand.TogglePlayPause) }, modifier = Modifier.size(42.dp).background(if (isPlaying) DokAccent else DokDivider, RoundedCornerShape(21.dp))) { Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, "Play", tint = if (isPlaying) Color.Black else DokPrimaryText) }
+                IconButton({ onCommand(EditorCommand.TogglePlayPause) }, modifier = Modifier.size(42.dp).background(if (isPlaying) DokAccent else DokDivider, RoundedCornerShape(21.dp)).testTag("play_pause_button")) { Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, "Play", tint = if (isPlaying) Color.Black else DokPrimaryText) }
                 IconButton({ onCommand(EditorCommand.StepFrames(1)) }) { Icon(Icons.Default.SkipNext, "Next frame", tint = DokPrimaryText) }
                 IconButton({ onCommand(EditorCommand.ShuttleForward) }) { Icon(Icons.Default.FastForward, "Forward", tint = DokPrimaryText) }
                 IconButton({ onCommand(EditorCommand.JumpToEnd) }) { Icon(Icons.Default.LastPage, "End", tint = DokPrimaryText) }
