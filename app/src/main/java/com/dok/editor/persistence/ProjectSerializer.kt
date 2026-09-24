@@ -132,6 +132,11 @@ object ProjectSerializer {
                     clipObj.put("transitionOut", toutObj)
                 }
 
+                clipObj.put("linkedClipId", clip.linkedClipId ?: JSONObject.NULL)
+                val waveformArray = JSONArray()
+                clip.waveform.forEach { waveformArray.put(it.toDouble()) }
+                clipObj.put("waveform", waveformArray)
+
                 // Text Overlay
                 clip.textOverlay?.let { txt ->
                     val txtObj = JSONObject()
