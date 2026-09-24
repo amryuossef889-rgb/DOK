@@ -29,6 +29,7 @@ sealed interface EditorCommand {
     data class TrimClipStart(val clipId: String, val newStartTimeUs: Long) : EditorCommand
     data class TrimClipEnd(val clipId: String, val newEndTimeUs: Long) : EditorCommand
     data class MoveClip(val clipId: String, val newStartTimeUs: Long, val targetTrackId: String? = null) : EditorCommand
+    data class MoveSelectedClip(val deltaUs: Long) : EditorCommand
     data class ChangeClipSpeed(val clipId: String, val speed: Float) : EditorCommand
     data class UpdateClipTransform(val clipId: String, val transform: Transform2D) : EditorCommand
     data class UpdateClipAudio(val clipId: String, val volumeDb: Float, val pan: Float) : EditorCommand
