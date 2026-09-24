@@ -13,6 +13,8 @@ import com.dok.editor.ui.DokEditorApp
 import com.dok.editor.ui.theme.DokEditorTheme
 import com.dok.editor.viewmodel.EditorPanel
 import com.dok.editor.viewmodel.EditorViewModel
+import android.app.Application
+import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -43,7 +45,7 @@ class EditorCommandAndUiTest {
 
     @Test
     fun testViewModelTransportAndShuttleCommands() {
-        val vm = EditorViewModel()
+        val vm = EditorViewModel(ApplicationProvider.getApplicationContext<Application>())
         assertFalse(vm.isPlaying.value)
         assertEquals(0L, vm.currentTimeUs.value)
 
