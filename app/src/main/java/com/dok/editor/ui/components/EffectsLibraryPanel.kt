@@ -30,24 +30,17 @@ import com.dok.editor.model.ExternalEffectAsset
 fun EffectsLibraryPanel(
     library: ExternalEffectLibrary,
     onAddToSelectedClip: (ExternalEffectAsset) -> Unit,
-    onAddSoundEffect: (Uri, String) -> Unit = { _, _ -> }
+    onAddSoundEffect: (Uri, String) -> Unit = { _, _ -> },
+    onImportedAsset: (ExternalEffectAsset) -> Unit = {},
+    onRemovedAsset: (String) -> Unit = {}
 ) {
     var assets by remember { mutableStateOf(library.all()) }
     val context = LocalContext.current
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val name = uri.lastPathSegment?.substringAfterLast('/') ?: "Imported Effect"
-            val asset = library.importAsset(
-                context = context,
-                uri = uri,
-                name = name,
-                kind = when {
-                    uri.toString().contains(".cube", ignoreCase = true) -> "lut"
-                    name.endsWith(".json", ignoreCase = true) -> "preset"
-                    context.contentResolver.getType(uri).orEmpty().startsWith("audio/") -> "audio-sfx"
-                    else -> "external-effect"
-                }
-            )
+            val asset = library.importAsset(context = context, uri = uri, name = name)
+            onImportedAsset(asset)
             assets = library.all()
         }
     }
@@ -73,6 +66,7 @@ fun EffectsLibraryPanel(
                     }) { Text(if (asset.kind == "audio-sfx") "INSERT" else "ADD") }
                     OutlinedButton(onClick = {
                         library.remove(asset.id)
+                        onRemovedAsset(asset.id)
                         assets = library.all()
                     }) { Text("REMOVE") }
                 }
