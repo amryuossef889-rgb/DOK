@@ -170,7 +170,9 @@ fun TimelinePanel(
                                         val wDp = max(32f, clip.durationUs / 1_000_000f * pps).dp
                                         TimelineClipBlock(clip, track, clip.id == selectedClipId, xDp, wDp, pps, density,
                                             { onCommand(EditorCommand.SelectClip(clip.id)) },
-                                            { newStart -> onCommand(EditorCommand.MoveClip(clip.id, newStart, track.id)) })
+                                            { newStart -> onCommand(EditorCommand.MoveClip(clip.id, newStart, track.id)) },
+                                            { newStart -> onCommand(EditorCommand.TrimClipStart(clip.id, newStart)) },
+                                            { newEnd -> onCommand(EditorCommand.TrimClipEnd(clip.id, newEnd)) })
                                     }
                                 }
                             }
@@ -197,7 +199,8 @@ fun TimelinePanel(
 @Composable
 private fun TimelineClipBlock(
     clip: TimelineClip, track: Track, selected: Boolean, x: Dp, width: Dp, pps: Float,
-    density: Density, onSelect: () -> Unit, onMove: (Long) -> Unit
+    density: Density, onSelect: () -> Unit, onMove: (Long) -> Unit,
+    onTrimStart: (Long) -> Unit, onTrimEnd: (Long) -> Unit
 ) {
     var dragOffsetPx by remember(clip.id) { mutableFloatStateOf(0f) }
     var dragStartUs by remember(clip.id, clip.startTimeUs) { mutableLongStateOf(clip.startTimeUs) }
@@ -262,6 +265,42 @@ private fun TimelineClipBlock(
         if (clip.linkedClipId != null) {
             Text("LINK", color = DokAccent, fontSize = 7.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp))
+        }
+        if (selected) {
+            Box(
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .width(7.dp)
+                    .fillMaxHeight()
+                    .background(DokAccent, RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp))
+                    .pointerInput(clip.id, clip.startTimeUs) {
+                        detectDragGestures(
+                            onDragStart = { onSelect() },
+                            onDrag = { change, drag ->
+                                change.consume()
+                                val deltaUs = with(density) { drag.x.toDp().value / pps * 1_000_000L }.toLong()
+                                onTrimStart((clip.startTimeUs + deltaUs).coerceAtLeast(0L))
+                            }
+                        )
+                    }
+            )
+            Box(
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(7.dp)
+                    .fillMaxHeight()
+                    .background(DokAccent, RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+                    .pointerInput(clip.id, clip.endTimeUs) {
+                        detectDragGestures(
+                            onDragStart = { onSelect() },
+                            onDrag = { change, drag ->
+                                change.consume()
+                                val deltaUs = with(density) { drag.x.toDp().value / pps * 1_000_000L }.toLong()
+                                onTrimEnd((clip.endTimeUs + deltaUs).coerceAtLeast(0L))
+                            }
+                        )
+                    }
+            )
         }
     }
 }
