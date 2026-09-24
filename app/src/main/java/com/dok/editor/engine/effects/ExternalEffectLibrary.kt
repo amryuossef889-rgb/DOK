@@ -14,10 +14,17 @@ class ExternalEffectLibrary(context: Context) {
     private val indexFile = File(root, "index.json")
 
     fun all(): List<ExternalEffectAsset> = load().first
+
+    fun classify(name: String, mimeType: String): String = when {
+        name.substringAfterLast(".", "").equals("cube", ignoreCase = true) -> "lut"
+        name.substringAfterLast(".", "").equals("json", ignoreCase = true) -> "preset"
+        mimeType.startsWith("audio/", ignoreCase = true) -> "audio-sfx"
+        else -> "external-effect"
+    }
     fun presets(): List<EffectPreset> = load().second
 
     @Synchronized
-    fun importAsset(context: Context, uri: Uri, name: String, kind: String = "effect", mimeType: String = ""): ExternalEffectAsset {
+    fun importAsset(context: Context, uri: Uri, name: String, kind: String = classify(name, mimeType), mimeType: String = context.contentResolver.getType(uri).orEmpty()): ExternalEffectAsset {
         val id = UUID.randomUUID().toString()
         val safeName = name.replace(Regex("[^A-Za-z0-9._-]"), "_").ifBlank { "asset" }
         val target = File(root, id + "_" + safeName)
