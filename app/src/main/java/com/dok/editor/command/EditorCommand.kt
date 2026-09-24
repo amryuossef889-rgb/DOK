@@ -31,6 +31,7 @@ sealed interface EditorCommand {
     data class MoveClip(val clipId: String, val newStartTimeUs: Long, val targetTrackId: String? = null) : EditorCommand
     data class ChangeClipSpeed(val clipId: String, val speed: Float) : EditorCommand
     data class UpdateClipTransform(val clipId: String, val transform: Transform2D) : EditorCommand
+    data class UpdateClipAudio(val clipId: String, val volumeDb: Float, val pan: Float) : EditorCommand
     data class UpdateColorGrading(val clipId: String, val colorParams: ColorGradingParams) : EditorCommand
     data class AddParametricEffect(val clipId: String, val effect: Effect.ParametricEffect) : EditorCommand
     data class RemoveEffect(val clipId: String, val effectId: String) : EditorCommand
