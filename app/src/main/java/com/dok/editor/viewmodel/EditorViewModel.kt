@@ -120,13 +120,27 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         return sign * when (a) { 1f -> 2f; 2f -> 4f; 4f -> 8f; else -> 1f }
     }
     private fun startPlayback(speed: Float) {
-        playbackJob?.cancel(); _isPlaying.value = true; _playbackSpeed.value = speed
+        playbackJob?.cancel()
+        _isPlaying.value = true
+        _playbackSpeed.value = speed
         playbackJob = viewModelScope.launch {
+            var lastNs = System.nanoTime()
             while (isActive && _isPlaying.value) {
-                delay(16L)
-                val next = _currentTimeUs.value + (16_000L * speed).toLong()
-                if (next <= 0L) { _currentTimeUs.value = 0L; pausePlayback(); break }
-                if (next >= _project.value.durationUs) { _currentTimeUs.value = _project.value.durationUs; pausePlayback(); break }
+                delay(8L)
+                val nowNs = System.nanoTime()
+                val elapsedUs = ((nowNs - lastNs) / 1_000L).coerceIn(1_000L, 50_000L)
+                lastNs = nowNs
+                val next = _currentTimeUs.value + (elapsedUs * speed).toLong()
+                if (next <= 0L) {
+                    _currentTimeUs.value = 0L
+                    pausePlayback()
+                    break
+                }
+                if (next >= _project.value.durationUs) {
+                    _currentTimeUs.value = _project.value.durationUs
+                    pausePlayback()
+                    break
+                }
                 _currentTimeUs.value = next
             }
         }
