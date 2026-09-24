@@ -8,6 +8,7 @@ import android.media.AudioTrack
 import android.net.Uri
 import android.view.Surface
 import com.dok.editor.engine.audio.PcmMixer
+import com.dok.editor.engine.gpu.EglVideoCompositor
 import com.dok.editor.engine.audio.StreamingAudioDecoder
 import com.dok.editor.engine.plan.TimelineRenderPlan
 import com.dok.editor.engine.video.SequentialVideoDecoder
@@ -56,6 +57,8 @@ class PreviewPlayer(
 
     private var currentProject: Project? = null
     private var surface: Surface? = null
+    private var compositor: EglVideoCompositor? = null
+    private val renderLock = Any()
     private var scaleMode = PreviewScaleMode.FULL
 
     // Decoders cache by URI
@@ -101,13 +104,20 @@ class PreviewPlayer(
     }
 
     fun attachSurface(surface: Surface) {
-        this.surface = surface
-        // Re-evaluate current frame on attached surface
-        currentProject?.let { renderVideoFrameAt(_playbackPositionUs.value) }
+        synchronized(renderLock) {
+            closeCompositorLocked()
+            this.surface = surface
+            // Re-evaluate the current frame on the new surface using the same
+            // render plan as export, so stacked video layers are actually composited.
+            currentProject?.let { renderVideoFrameAtLocked(it, _playbackPositionUs.value) }
+        }
     }
 
     fun detachSurface() {
-        this.surface = null
+        synchronized(renderLock) {
+            this.surface = null
+            closeCompositorLocked()
+        }
     }
 
     fun setScaleMode(mode: PreviewScaleMode) {
@@ -115,12 +125,16 @@ class PreviewPlayer(
     }
 
     fun setProject(project: Project) {
-        this.currentProject = project
-        _totalDurationUs.value = project.totalDurationUs
-        if (_playerState.value == PlayerState.IDLE) {
-            _playerState.value = PlayerState.PAUSED
+        synchronized(renderLock) {
+            this.currentProject = project
+            _totalDurationUs.value = project.totalDurationUs
+            if (_playerState.value == PlayerState.IDLE) {
+                _playerState.value = PlayerState.PAUSED
+            }
+            // Recreate the compositor when the project's render target changes.
+            closeCompositorLocked()
+            renderVideoFrameAtLocked(project, _playbackPositionUs.value)
         }
-        renderVideoFrameAt(_playbackPositionUs.value)
     }
 
     fun play() {
@@ -267,14 +281,42 @@ class PreviewPlayer(
     }
 
     private fun renderVideoFrameAt(timeUs: Long) {
-        val project = currentProject ?: return
-        val targetSurface = surface ?: return
-
-        val plan = TimelineRenderPlan.evaluateVideoAt(project, timeUs)
-        for (frameInst in plan.frameInstructions) {
-            val decoder = getOrCreateVideoDecoder(frameInst.mediaUri, targetSurface)
-            decoder?.decodeFrameToPts(frameInst.mediaSourceTimeUs)
+        synchronized(renderLock) {
+            val project = currentProject ?: return
+            renderVideoFrameAtLocked(project, timeUs)
         }
+    }
+
+    /**
+     * Preview and export both consume TimelineRenderPlan. Preview renders every
+     * active video layer into one EGL surface instead of letting multiple
+     * decoders overwrite the same Surface in sequence.
+     */
+    private fun renderVideoFrameAtLocked(project: Project, timeUs: Long) {
+        val targetSurface = surface ?: return
+        val plan = TimelineRenderPlan.evaluateVideoAt(project, timeUs)
+        if (plan.frameInstructions.isEmpty()) {
+            closeCompositorLocked()
+            return
+        }
+
+        val gpu = compositor ?: EglVideoCompositor(
+            context = context,
+            encoderSurface = targetSurface,
+            width = project.width,
+            height = project.height
+        ).also { compositor = it }
+
+        gpu.beginFrame()
+        for (frameInst in plan.frameInstructions) {
+            gpu.renderLayer(frameInst.clipId, Uri.parse(frameInst.mediaUri), frameInst)
+        }
+        gpu.endFrame(timeUs)
+    }
+
+    private fun closeCompositorLocked() {
+        runCatching { compositor?.close() }
+        compositor = null
     }
 
     private fun getOrCreateAudioDecoder(uriString: String): StreamingAudioDecoder? {
@@ -319,6 +361,7 @@ class PreviewPlayer(
 
         videoDecoders.values.forEach { it.close() }
         videoDecoders.clear()
+        synchronized(renderLock) { closeCompositorLocked() }
 
         _playerState.value = PlayerState.IDLE
     }
