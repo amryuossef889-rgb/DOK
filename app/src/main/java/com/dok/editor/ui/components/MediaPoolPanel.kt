@@ -88,7 +88,7 @@ private fun MediaPoolAssetRow(asset: MediaAsset, onAdd: () -> Unit) {
             contentDescription = null,
             modifier = Modifier.size(72.dp)
                 .background(DokBackground, RoundedCornerShape(4.dp))
-                .dragAndDropSource { _ ->
+                .dragAndDropSource {
                     DragAndDropTransferData(
                         ClipData.newPlainText("DOK_MEDIA_ASSET", asset.id),
                         flags = View.DRAG_FLAG_GLOBAL
