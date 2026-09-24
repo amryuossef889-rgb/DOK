@@ -220,12 +220,27 @@ class ExportPipeline(
                     val dec = audioDecoders.getOrPut(inst.mediaUri) {
                         StreamingAudioDecoder(context, Uri.parse(inst.mediaUri))
                     }
-                    val decoded = dec.readFrames(inst.sourceStartFrame44k, inst.frameCount)
-                    val gL = inst.combinedLinearGain * inst.panGains.first * inst.fadeMultiplier
-                    val gR = inst.combinedLinearGain * inst.panGains.second * inst.fadeMultiplier
+                    val sourceFramesNeeded = (inst.frameCount.toDouble() * inst.speed.toDouble())
+                        .toLong().coerceAtLeast(1L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt() + 2
+                    val decoded = dec.readFrames(inst.sourceStartFrame44k, sourceFramesNeeded)
+                    val speedAdjusted = if (inst.speed == 1.0f) {
+                        decoded
+                    } else {
+                        PcmMixer.resampleByAbsolutePosition(
+                            sourcePcm = decoded,
+                            sourceSampleRate = PcmMixer.SAMPLE_RATE_44K,
+                            absoluteOutputStartFrame = 0L,
+                            outputFrameCount = inst.frameCount,
+                            speed = inst.speed,
+                            targetSampleRate = PcmMixer.SAMPLE_RATE_44K
+                        )
+                    }
+                    val gL = inst.combinedLinearGain * inst.panGains.first
+                    val gR = inst.combinedLinearGain * inst.panGains.second
                     for (k in 0 until minOf(inst.frameCount, framesThisChunk)) {
-                        mixed[k * 2] += decoded[k * 2] * gL
-                        mixed[k * 2 + 1] += decoded[k * 2 + 1] * gR
+                        val gain = inst.fadeMultiplier
+                        mixed[k * 2] += speedAdjusted[k * 2] * gL * gain
+                        mixed[k * 2 + 1] += speedAdjusted[k * 2 + 1] * gR * gain
                     }
                 }
                 PcmMixer.applySoftKneeLimiter(mixed)
