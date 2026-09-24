@@ -11,6 +11,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -45,7 +47,8 @@ fun TimelinePanel(
 ) {
     val scroll = rememberScrollState()
     val density = LocalDensity.current
-    val pps = 72f * zoomLevel
+    var gestureZoom by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(zoomLevel) }
+    val pps = 72f * gestureZoom
     val duration = max(project.durationUs, 30_000_000L)
     val totalWidth = (duration / 1_000_000f * pps).dp
 
