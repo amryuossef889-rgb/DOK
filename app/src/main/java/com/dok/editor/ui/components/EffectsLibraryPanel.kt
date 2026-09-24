@@ -41,7 +41,12 @@ fun EffectsLibraryPanel(
                 context = context,
                 uri = uri,
                 name = name,
-                kind = "external-effect"
+                kind = when {
+                    uri.toString().contains(".cube", ignoreCase = true) -> "lut"
+                    name.endsWith(".json", ignoreCase = true) -> "preset"
+                    context.contentResolver.getType(uri).orEmpty().startsWith("audio/") -> "audio-sfx"
+                    else -> "external-effect"
+                }
             )
             assets = library.all()
         }
@@ -62,7 +67,10 @@ fun EffectsLibraryPanel(
                         Text(asset.name)
                         Text(asset.kind)
                     }
-                    OutlinedButton(onClick = { onAddToSelectedClip(asset) }) { Text("ADD") }
+                    OutlinedButton(onClick = {
+                        if (asset.kind == "audio-sfx") onAddSoundEffect(Uri.parse(asset.uri), asset.name)
+                        else onAddToSelectedClip(asset)
+                    }) { Text(if (asset.kind == "audio-sfx") "INSERT" else "ADD") }
                     OutlinedButton(onClick = {
                         library.remove(asset.id)
                         assets = library.all()
