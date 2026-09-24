@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dok.editor.command.EditorCommand
 import com.dok.editor.engine.export.ExportPreset
+import com.dok.editor.render.RenderJob
 import com.dok.editor.ui.theme.DokAccent
 import com.dok.editor.ui.theme.DokDivider
 import com.dok.editor.ui.theme.DokPrimaryText
@@ -56,6 +57,11 @@ fun DeliverPanel(
     onCommand: (EditorCommand) -> Unit,
     onImportSrt: () -> Unit = {},
     onExportSrt: () -> Unit = {},
+    renderJobs: List<RenderJob> = emptyList(),
+    onQueueExport: () -> Unit = {},
+    onStartQueue: () -> Unit = {},
+    onCancelQueue: (String) -> Unit = {},
+    onRemoveQueue: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -188,6 +194,32 @@ fun DeliverPanel(
                         }
                     }
                 }
+            }
+
+            if (renderJobs.isNotEmpty()) {
+                Text("RENDER QUEUE", color = DokPrimaryText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(6.dp))
+                renderJobs.take(6).forEach { job ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(job.name, color = DokPrimaryText, fontSize = 9.sp, maxLines = 1)
+                            Text(job.status.toString() + " " + (job.progress * 100).toInt() + "%", color = DokSecondaryText, fontSize = 8.sp)
+                        }
+                        if (job.status.toString() == "RUNNING") {
+                            OutlinedButton(onClick = { onCancelQueue(job.id) }, contentPadding = PaddingValues(horizontal = 7.dp, vertical = 2.dp)) { Text("STOP", fontSize = 8.sp) }
+                        } else {
+                            OutlinedButton(onClick = { onRemoveQueue(job.id) }, contentPadding = PaddingValues(horizontal = 7.dp, vertical = 2.dp)) { Text("REMOVE", fontSize = 8.sp) }
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onQueueExport) { Text("QUEUE CURRENT", fontSize = 9.sp) }
+                    OutlinedButton(onClick = onStartQueue) { Text("START QUEUE", fontSize = 9.sp) }
+                }
+                Spacer(Modifier.height(10.dp))
             }
 
             Spacer(modifier = Modifier.weight(1f))
