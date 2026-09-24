@@ -141,4 +141,46 @@ class TimelineEditingEngineTest {
         )
         assertEquals(7_000_000L, unsnapped)
     }
+    @Test
+    fun testSplitLinkedClipKeepsPairs() {
+        val video = TimelineClip(
+            id = "video",
+            trackId = "v1",
+            mediaUri = "content://media/shared",
+            startTimeUs = 0L,
+            durationUs = 6_000_000L,
+            trimInUs = 0L,
+            trimOutUs = 6_000_000L,
+            linkedClipId = "audio"
+        )
+        val audio = TimelineClip(
+            id = "audio",
+            trackId = "a1",
+            mediaUri = "content://media/shared",
+            startTimeUs = 0L,
+            durationUs = 6_000_000L,
+            trimInUs = 0L,
+            trimOutUs = 6_000_000L,
+            linkedClipId = "video"
+        )
+        val project = Project(
+            id = "linked",
+            tracks = listOf(
+                Track(id = "v1", name = "V1", type = TrackType.VIDEO, clips = listOf(video)),
+                Track(id = "a1", name = "A1", type = TrackType.AUDIO, clips = listOf(audio))
+            )
+        )
+
+        val split = TimelineEditingEngine.splitLinkedClip(project, "video", 3_000_000L)
+        val videos = split.tracks.first { it.id == "v1" }.clips.sortedBy { it.startTimeUs }
+        val audios = split.tracks.first { it.id == "a1" }.clips.sortedBy { it.startTimeUs }
+
+        assertEquals(2, videos.size)
+        assertEquals(2, audios.size)
+        assertEquals(audios[0].id, videos[0].linkedClipId)
+        assertEquals(videos[0].id, audios[0].linkedClipId)
+        assertEquals(audios[1].id, videos[1].linkedClipId)
+        assertEquals(videos[1].id, audios[1].linkedClipId)
+    }
+
 }

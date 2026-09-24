@@ -19,7 +19,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.VideoFile
+import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
@@ -34,9 +36,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.sp
 import com.dok.editor.command.EditorCommand
 import com.dok.editor.engine.export.ExportPreset
+import com.dok.editor.render.RenderJob
 import com.dok.editor.ui.theme.DokAccent
 import com.dok.editor.ui.theme.DokDivider
 import com.dok.editor.ui.theme.DokPrimaryText
@@ -53,6 +57,13 @@ fun DeliverPanel(
     exportProgress: Float,
     onSelectPreset: (ExportPreset) -> Unit,
     onCommand: (EditorCommand) -> Unit,
+    onImportSrt: () -> Unit = {},
+    onExportSrt: () -> Unit = {},
+    renderJobs: List<RenderJob> = emptyList(),
+    onQueueExport: () -> Unit = {},
+    onStartQueue: () -> Unit = {},
+    onCancelQueue: (String) -> Unit = {},
+    onRemoveQueue: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -104,6 +115,20 @@ fun DeliverPanel(
             Spacer(modifier = Modifier.height(16.dp))
             Divider(color = DokDivider, thickness = 1.dp)
             Spacer(modifier = Modifier.height(16.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onImportSrt) {
+                    Icon(Icons.Default.Subtitles, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text("IMPORT SRT", fontSize = 10.sp)
+                }
+                OutlinedButton(onClick = onExportSrt) {
+                    Icon(Icons.Default.Subtitles, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text("EXPORT SRT", fontSize = 10.sp)
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
 
             Text(
                 text = "Export Presets",
@@ -171,6 +196,32 @@ fun DeliverPanel(
                         }
                     }
                 }
+            }
+
+            if (renderJobs.isNotEmpty()) {
+                Text("RENDER QUEUE", color = DokPrimaryText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(6.dp))
+                renderJobs.take(6).forEach { job ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(job.name, color = DokPrimaryText, fontSize = 9.sp, maxLines = 1)
+                            Text(job.status.toString() + " " + (job.progress * 100).toInt() + "%", color = DokSecondaryText, fontSize = 8.sp)
+                        }
+                        if (job.status.toString() == "RUNNING") {
+                            OutlinedButton(onClick = { onCancelQueue(job.id) }, contentPadding = PaddingValues(horizontal = 7.dp, vertical = 2.dp)) { Text("STOP", fontSize = 8.sp) }
+                        } else {
+                            OutlinedButton(onClick = { onRemoveQueue(job.id) }, contentPadding = PaddingValues(horizontal = 7.dp, vertical = 2.dp)) { Text("REMOVE", fontSize = 8.sp) }
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onQueueExport) { Text("QUEUE CURRENT", fontSize = 9.sp) }
+                    OutlinedButton(onClick = onStartQueue) { Text("START QUEUE", fontSize = 9.sp) }
+                }
+                Spacer(Modifier.height(10.dp))
             }
 
             Spacer(modifier = Modifier.weight(1f))

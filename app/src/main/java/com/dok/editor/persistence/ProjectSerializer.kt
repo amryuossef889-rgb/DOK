@@ -7,6 +7,8 @@ import com.dok.editor.model.InterpolationType
 import com.dok.editor.model.Keyframe
 import com.dok.editor.model.KeyframeProperty
 import com.dok.editor.model.Project
+import com.dok.editor.model.MediaAsset
+import com.dok.editor.model.ExternalEffectAsset
 import com.dok.editor.model.TextOverlayConfig
 import com.dok.editor.model.TimelineClip
 import com.dok.editor.model.Track
@@ -23,7 +25,7 @@ import java.nio.charset.StandardCharsets
 
 object ProjectSerializer {
 
-    const val CURRENT_SCHEMA_VERSION = 1
+    const val CURRENT_SCHEMA_VERSION = 2
 
     fun serializeToJson(project: Project): String {
         val root = JSONObject()
@@ -131,6 +133,11 @@ object ProjectSerializer {
                     clipObj.put("transitionOut", toutObj)
                 }
 
+                clipObj.put("linkedClipId", clip.linkedClipId ?: JSONObject.NULL)
+                val waveformArray = JSONArray()
+                clip.waveform.forEach { waveformArray.put(it.toDouble()) }
+                clipObj.put("waveform", waveformArray)
+
                 // Text Overlay
                 clip.textOverlay?.let { txt ->
                     val txtObj = JSONObject()
@@ -151,6 +158,26 @@ object ProjectSerializer {
             tracksArray.put(trackObj)
         }
         root.put("tracks", tracksArray)
+
+        val mediaPoolArray = JSONArray()
+        project.mediaPool.forEach { asset ->
+            mediaPoolArray.put(JSONObject().apply {
+                put("id", asset.id); put("uri", asset.uri); put("name", asset.name)
+                put("durationUs", asset.durationUs); put("width", asset.width); put("height", asset.height)
+                put("fps", asset.fps.toDouble()); put("sampleRate", asset.sampleRate); put("channels", asset.channels)
+                put("codec", asset.codec); put("sizeBytes", asset.sizeBytes); put("isOffline", asset.isOffline)
+                put("proxyUri", asset.proxyUri ?: "")
+            })
+        }
+        root.put("mediaPool", mediaPoolArray)
+        val effectsArray = JSONArray()
+        project.effectLibrary.forEach { asset ->
+            effectsArray.put(JSONObject().apply {
+                put("id", asset.id); put("name", asset.name); put("uri", asset.uri)
+                put("kind", asset.kind); put("mimeType", asset.mimeType); put("metadataJson", asset.metadataJson)
+            })
+        }
+        root.put("effectLibrary", effectsArray)
         return root.toString(2)
     }
 
@@ -172,6 +199,36 @@ object ProjectSerializer {
         val fps = migratedRoot.optInt("fps", 30)
         val createdAtMs = migratedRoot.optLong("createdAtMs", System.currentTimeMillis())
         val modifiedAtMs = migratedRoot.optLong("modifiedAtMs", System.currentTimeMillis())
+
+        val mediaPool = ArrayList<MediaAsset>()
+        val mediaPoolArray = migratedRoot.optJSONArray("mediaPool") ?: JSONArray()
+        for (i in 0 until mediaPoolArray.length()) {
+            val o = mediaPoolArray.getJSONObject(i)
+            mediaPool.add(
+                MediaAsset(
+                    id = o.optString("id"),
+                    uri = o.optString("uri"),
+                    name = o.optString("name"),
+                    durationUs = o.optLong("durationUs"),
+                    width = o.optInt("width"),
+                    height = o.optInt("height"),
+                    fps = o.optDouble("fps").toFloat(),
+                    sampleRate = o.optInt("sampleRate"),
+                    channels = o.optInt("channels"),
+                    codec = o.optString("codec"),
+                    sizeBytes = o.optLong("sizeBytes"),
+                    isOffline = o.optBoolean("isOffline"),
+                    proxyUri = o.optString("proxyUri").ifBlank { null }
+                )
+            )
+        }
+
+        val effectLibrary = ArrayList<ExternalEffectAsset>()
+        val effectArray = migratedRoot.optJSONArray("effectLibrary") ?: JSONArray()
+        for (i in 0 until effectArray.length()) {
+            val o = effectArray.getJSONObject(i)
+            effectLibrary.add(ExternalEffectAsset(o.optString("id"), o.optString("name"), o.optString("uri"), o.optString("kind", "effect"), o.optString("mimeType"), o.optString("metadataJson")))
+        }
 
         val tracksArray = migratedRoot.optJSONArray("tracks") ?: JSONArray()
         val tracks = ArrayList<Track>()
@@ -296,6 +353,11 @@ object ProjectSerializer {
                     )
                 }
 
+                val linkedClipId = clipObj.optString("linkedClipId").ifBlank { null }
+                val waveform = clipObj.optJSONArray("waveform")?.let { array ->
+                    List(array.length()) { index -> array.optDouble(index).toFloat() }
+                } ?: emptyList()
+
                 // Text Overlay
                 val txtObj = clipObj.optJSONObject("textOverlay")
                 val textOverlay = txtObj?.let {
@@ -335,7 +397,9 @@ object ProjectSerializer {
                         effects = effects,
                         transitionIn = transitionIn,
                         transitionOut = transitionOut,
-                        textOverlay = textOverlay
+                        textOverlay = textOverlay,
+                        linkedClipId = linkedClipId,
+                        waveform = waveform
                     )
                 )
             }
@@ -363,6 +427,8 @@ object ProjectSerializer {
             fps = fps,
             schemaVersion = CURRENT_SCHEMA_VERSION,
             tracks = tracks,
+            mediaPool = mediaPool,
+            effectLibrary = effectLibrary,
             createdAtMs = createdAtMs,
             modifiedAtMs = modifiedAtMs
         )
@@ -374,6 +440,7 @@ object ProjectSerializer {
         while (v < targetVersion) {
             current = when (v) {
                 0 -> migrateV0ToV1(current)
+                1 -> migrateV1ToV2(current)
                 else -> current
             }
             v++
@@ -419,6 +486,12 @@ object ProjectSerializer {
             }
         }
         return v1
+    }
+
+    private fun migrateV1ToV2(v1: JSONObject): JSONObject {
+        val v2 = JSONObject(v1.toString())
+        if (!v2.has("effectLibrary")) v2.put("effectLibrary", JSONArray())
+        return v2
     }
 
     /**

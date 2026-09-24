@@ -1,182 +1,225 @@
 package com.dok.editor.ui.components
 
+import android.content.ClipDescription
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
+import android.net.Uri
+import coil.compose.AsyncImage
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCut
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Redo
-import androidx.compose.material.icons.filled.Undo
-import androidx.compose.material.icons.filled.VolumeMute
-import androidx.compose.material.icons.filled.ZoomIn
-import androidx.compose.material.icons.filled.ZoomOut
-import androidx.compose.material3.Divider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.*
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.draganddrop.DragAndDropEvent
+import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.draganddrop.mimeTypes
+import androidx.compose.ui.draganddrop.toAndroidDragEvent
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.*
 import com.dok.editor.command.EditorCommand
-import com.dok.editor.model.Project
-import com.dok.editor.model.TimelineClip
-import com.dok.editor.model.Track
-import com.dok.editor.model.TrackType
-import com.dok.editor.ui.theme.DokAccent
-import com.dok.editor.ui.theme.DokBackground
-import com.dok.editor.ui.theme.DokDivider
-import com.dok.editor.ui.theme.DokPlayhead
-import com.dok.editor.ui.theme.DokPrimaryText
-import com.dok.editor.ui.theme.DokSecondaryText
-import com.dok.editor.ui.theme.DokSurface
-import com.dok.editor.ui.theme.DokSurfaceElevated
-import com.dok.editor.ui.theme.DokTrackAudio
-import com.dok.editor.ui.theme.DokTrackVideo
-import com.dok.editor.ui.theme.DokWarning
+import com.dok.editor.model.*
+import com.dok.editor.ui.theme.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.roundToInt
 
 @Composable
 fun TimelinePanel(
-    project: Project,
-    currentTimeUs: Long,
-    selectedClipId: String?,
-    isSnappingEnabled: Boolean,
-    zoomLevel: Float,
-    canUndo: Boolean,
-    canRedo: Boolean,
-    inPointUs: Long?,
-    outPointUs: Long?,
-    onCommand: (EditorCommand) -> Unit,
-    modifier: Modifier = Modifier
+    project: Project, currentTimeUs: Long, selectedClipId: String?, isSnappingEnabled: Boolean,
+    zoomLevel: Float, canUndo: Boolean, canRedo: Boolean, inPointUs: Long?, outPointUs: Long?,
+    onCommand: (EditorCommand) -> Unit, modifier: Modifier = Modifier
 ) {
-    val scrollState = rememberScrollState()
+    val scroll = rememberScrollState()
+    val density = LocalDensity.current
+    val latestCurrentTimeUs = rememberUpdatedState(currentTimeUs)
+    var gestureZoom by remember { mutableFloatStateOf(zoomLevel) }
+    LaunchedEffect(zoomLevel) { gestureZoom = zoomLevel }
+    val pps = 72f * gestureZoom
+    val duration = max(project.durationUs, 30_000_000L)
+    val totalWidth = (duration / 1_000_000f * pps).dp
 
-    // 1 second on timeline = 80.dp * zoomLevel
-    val pixelsPerSecond = 80f * zoomLevel
-    val projectDurationUs = max(project.durationUs, 10_000_000L)
-    val totalTimelineWidthDp = ((projectDurationUs / 1_000_000f) * pixelsPerSecond).dp
-
-    Surface(
-        color = DokBackground,
-        modifier = modifier.testTag("timeline_panel")
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Action Toolbar (Split, Delete, Ripple, Snap, Undo, Redo, Zoom)
-            TimelineToolbar(
-                canUndo = canUndo,
-                canRedo = canRedo,
-                isSnappingEnabled = isSnappingEnabled,
-                hasSelection = selectedClipId != null,
-                currentTimeUs = currentTimeUs,
-                onCommand = onCommand
-            )
-
-            Divider(color = DokDivider, thickness = 1.dp)
-
-            // Timeline Scrollable Container
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-            ) {
-                // Fixed Track Headers (V1, A1)
-                TrackHeadersColumn(
-                    tracks = project.tracks,
-                    modifier = Modifier.width(72.dp)
+    Surface(color = DokBackground, modifier = modifier.testTag("timeline_panel")) {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().height(42.dp).background(DokSurfaceElevated).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("TIMELINE", color = DokPrimaryText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(8.dp))
+                IconButton({ onCommand(EditorCommand.SplitClipAtPlayhead) }, Modifier.size(34.dp)) { Icon(Icons.Default.ContentCut, "Razor", tint = DokPrimaryText) }
+                IconButton({ onCommand(EditorCommand.DeleteSelectedClip) }, Modifier.size(34.dp)) { Icon(Icons.Default.Delete, "Delete", tint = if (selectedClipId != null) DokPrimaryText else DokSecondaryText) }
+                Text(if (isSnappingEnabled) "SNAP" else "FREE", color = if (isSnappingEnabled) DokAccent else DokSecondaryText, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onCommand(EditorCommand.ToggleSnapping) }.padding(6.dp))
+                Spacer(Modifier.weight(1f))
+                Text(EditorViewModelFormat(currentTimeUs, project.fps), color = DokAccent, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                Text(
+                    "%.2fx • %d px/s".format(gestureZoom.coerceIn(.25f, 8f), pps.toInt()),
+                    color = DokSecondaryText, fontSize = 8.sp, fontFamily = FontFamily.Monospace
                 )
+                IconButton({ onCommand(EditorCommand.ZoomToFit) }, Modifier.size(34.dp)) { Icon(Icons.Default.FitScreen, "Fit", tint = DokPrimaryText) }
+                IconButton({ onCommand(EditorCommand.ZoomTimeline(-.25f)) }, Modifier.size(34.dp)) { Icon(Icons.Default.ZoomOut, "Zoom out", tint = DokPrimaryText) }
+                IconButton({ onCommand(EditorCommand.ZoomTimeline(.25f)) }, Modifier.size(34.dp)) { Icon(Icons.Default.ZoomIn, "Zoom in", tint = DokPrimaryText) }
+                IconButton({ onCommand(EditorCommand.Undo) }, Modifier.size(34.dp), enabled = canUndo) { Icon(Icons.Default.Undo, "Undo", tint = DokPrimaryText) }
+                IconButton({ onCommand(EditorCommand.Redo) }, Modifier.size(34.dp), enabled = canRedo) { Icon(Icons.Default.Redo, "Redo", tint = DokPrimaryText) }
+            }
 
-                Divider(color = DokDivider, modifier = Modifier.fillMaxHeight().width(1.dp))
+            Row(Modifier.fillMaxSize()) {
+                Column(Modifier.width(76.dp).fillMaxHeight().background(DokSurface)) {
+                    Box(Modifier.fillMaxWidth().height(34.dp), contentAlignment = Alignment.Center) { Text("TRACKS", color = DokSecondaryText, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+                    project.tracks.forEach { track ->
+                        Row(Modifier.fillMaxWidth().height(66.dp).border(1.dp, DokDivider), verticalAlignment = Alignment.CenterVertically) {
+                            Text(track.name, color = if (track.type == TrackType.VIDEO) DokAccent else DokPrimaryText, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(7.dp))
+                        }
+                    }
+                }
 
-                // Scrollable Tracks Area with Ruler & Playhead
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .horizontalScroll(scrollState)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .width(totalTimelineWidthDp)
-                            .fillMaxHeight()
-                    ) {
-                        // Ruler Header
-                        TimelineRuler(
-                            durationUs = projectDurationUs,
-                            pixelsPerSecond = pixelsPerSecond,
-                            inPointUs = inPointUs,
-                            outPointUs = outPointUs,
-                            currentTimeUs = currentTimeUs,
-                            onSeek = { seekUs -> onCommand(EditorCommand.ScrubTo(seekUs)) }
-                        )
-
-                        Divider(color = DokDivider, thickness = 1.dp)
-
-                        // Tracks Content
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .pointerInput(Unit) {
-                                    detectTapGestures { offset ->
-                                        val clickedTimeUs = ((offset.x / (pixelsPerSecond * density)) * 1_000_000L).toLong()
-                                        onCommand(EditorCommand.ScrubTo(clickedTimeUs))
-                                    }
+                val dropTarget = remember(pps, scroll.value, project.tracks, density) {
+                    object : DragAndDropTarget {
+                        override fun onDrop(event: DragAndDropEvent): Boolean {
+                            val androidEvent = event.toAndroidDragEvent()
+                            val clipData = androidEvent.clipData ?: return false
+                            if (clipData.itemCount == 0) return false
+                            val assetId = clipData.getItemAt(0).text?.toString()?.takeIf { it.isNotBlank() } ?: return false
+                            val xPx = androidEvent.x + scroll.value
+                            val yPx = androidEvent.y
+                            val rowTopPx = with(density) { 34.dp.toPx() }
+                            val rowHeightPx = with(density) { 66.dp.toPx() }
+                            val trackIndex = ((yPx - rowTopPx) / rowHeightPx).toInt()
+                            val targetTrack = project.tracks.getOrNull(trackIndex) ?: return false
+                            val startUs = ((xPx / density.density) / pps * 1_000_000L).toLong().coerceAtLeast(0L)
+                            val dragLabel = clipData.description?.label?.toString().orEmpty()
+                            if (dragLabel == "DOK_EFFECT_ASSET") {
+                                val effect = project.effectLibrary.firstOrNull { it.id == assetId } ?: return false
+                                if (effect.kind == "audio-sfx") {
+                                    onCommand(EditorCommand.InsertSoundEffectAsset(assetId, startUs))
+                                } else {
+                                    onCommand(EditorCommand.ApplyExternalEffectAsset(assetId, startUs))
                                 }
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                project.tracks.forEach { track ->
-                                    TrackRow(
-                                        track = track,
-                                        selectedClipId = selectedClipId,
-                                        pixelsPerSecond = pixelsPerSecond,
-                                        onSelectClip = { clipId -> onCommand(EditorCommand.SelectClip(clipId)) }
+                            } else {
+                                onCommand(EditorCommand.AddMediaAssetToTimeline(assetId, startUs, targetTrack.id))
+                            }
+                            return true
+                        }
+                    }
+                }
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .dragAndDropTarget(
+                            shouldStartDragAndDrop = { event ->
+                                event.mimeTypes().contains(ClipDescription.MIMETYPE_TEXT_PLAIN)
+                            },
+                            target = dropTarget
+                        )
+                        .pointerInput(zoomLevel) {
+                            detectTransformGestures { _, _, zoomChange, _ ->
+                                if (abs(zoomChange - 1f) > 0.001f) {
+                                    onCommand(EditorCommand.ZoomTimeline((zoomChange - 1f) * gestureZoom))
+                                }
+                            }
+                        }
+                        .horizontalScroll(scroll)
+                ) {
+                    Box(Modifier.width(totalWidth).fillMaxHeight()) {
+                        Column(Modifier.fillMaxSize()) {
+                            Box(Modifier.fillMaxWidth().height(34.dp).background(DokSurfaceElevated).pointerInput(duration, pps) {
+                                detectTapGestures { o ->
+                                    val us = (o.x / density.density / pps * 1_000_000L).toLong()
+                                    onCommand(EditorCommand.ScrubTo(us))
+                                }
+                            }) {
+                                val seconds = (duration / 1_000_000L).toInt()
+                                val majorStep = when {
+                                    pps >= 180f -> 1
+                                    pps >= 90f -> 2
+                                    pps >= 45f -> 5
+                                    else -> 10
+                                }
+                                for (s in 0..seconds) {
+                                    val x = (s * pps).dp
+                                    val major = s % majorStep == 0
+                                    if (major) {
+                                        Text(
+                                            EditorViewModelFormat(s * 1_000_000L, project.fps),
+                                            color = DokSecondaryText, fontSize = 8.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            modifier = Modifier.offset(x = x + 2.dp, y = 4.dp)
+                                        )
+                                    }
+                                    Box(
+                                        Modifier.offset(x = x)
+                                            .width(1.dp)
+                                            .height(if (major) 10.dp else 5.dp)
+                                            .background(DokDivider)
                                     )
-                                    Divider(color = DokDivider, thickness = 1.dp)
                                 }
                             }
 
-                            // Scrub Playhead Line + Diamond Handle
-                            val playheadOffsetXDp = ((currentTimeUs / 1_000_000f) * pixelsPerSecond).dp
-                            Playhead(
-                                offsetXDp = playheadOffsetXDp,
-                                onDragSeek = { deltaPx ->
-                                    val deltaUs = ((deltaPx / (pixelsPerSecond * 2.5f)) * 1_000_000L).toLong()
-                                    onCommand(EditorCommand.ScrubTo(currentTimeUs + deltaUs))
+                            project.tracks.forEach { track ->
+                                Box(Modifier.fillMaxWidth().height(66.dp).background(DokBackground).border(1.dp, DokDivider)) {
+                                    track.clips.forEach { clip ->
+                                        val xDp = (clip.startTimeUs / 1_000_000f * pps).dp
+                                        val wDp = max(32f, clip.durationUs / 1_000_000f * pps).dp
+                                        TimelineClipBlock(clip, track, clip.id == selectedClipId, xDp, wDp, pps, density,
+                                            { onCommand(EditorCommand.SelectClip(clip.id)) },
+                                            { newStart -> onCommand(EditorCommand.MoveClip(clip.id, newStart, track.id)) },
+                                            { newStart -> onCommand(EditorCommand.TrimClipStart(clip.id, newStart)) },
+                                            { newEnd -> onCommand(EditorCommand.TrimClipEnd(clip.id, newEnd)) })
+                                    }
                                 }
-                            )
+                            }
+                        }
+
+                        val playheadX = currentTimeUs / 1_000_000f * pps
+                        Box(
+                            Modifier
+                                .offset(x = playheadX.dp)
+                                .fillMaxHeight()
+                                .width(20.dp)
+                                .pointerInput(pps) {
+                                    var dragStartTimeUs = 0L
+                                    var dragOffsetPx = 0f
+                                    detectDragGestures(
+                                        onDragStart = {
+                                            dragStartTimeUs = latestCurrentTimeUs.value
+                                            dragOffsetPx = 0f
+                                        },
+                                        onDrag = { change, drag ->
+                                            change.consume()
+                                            dragOffsetPx += drag.x
+                                            val deltaUs = with(density) {
+                                                dragOffsetPx.toDp().value / pps * 1_000_000L
+                                            }.toLong()
+                                            onCommand(
+                                                EditorCommand.ScrubTo(
+                                                    (dragStartTimeUs + deltaUs).coerceAtLeast(0L)
+                                                )
+                                            )
+                                        }
+                                    )
+                                }
+                        ) {
+                            Box(Modifier.align(Alignment.TopCenter).width(12.dp).height(16.dp).background(DokPlayhead, RoundedCornerShape(3.dp)))
+                            Box(Modifier.align(Alignment.TopCenter).offset(y = 12.dp).width(2.dp).fillMaxHeight().background(DokPlayhead))
                         }
                     }
                 }
@@ -186,443 +229,164 @@ fun TimelinePanel(
 }
 
 @Composable
-fun TimelineToolbar(
-    canUndo: Boolean,
-    canRedo: Boolean,
-    isSnappingEnabled: Boolean,
-    hasSelection: Boolean,
-    currentTimeUs: Long,
-    onCommand: (EditorCommand) -> Unit
+private fun TimelineClipBlock(
+    clip: TimelineClip, track: Track, selected: Boolean, x: Dp, width: Dp, pps: Float,
+    density: Density, onSelect: () -> Unit, onMove: (Long) -> Unit,
+    onTrimStart: (Long) -> Unit, onTrimEnd: (Long) -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(DokSurfaceElevated)
-            .padding(horizontal = 6.dp, vertical = 2.dp)
-            .testTag("timeline_toolbar"),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Editing operations: Split, Ripple Delete, Delete
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Split (Razor Blade)
-            IconButton(
-                onClick = { onCommand(EditorCommand.SplitClipAtPlayhead) },
-                modifier = Modifier.size(36.dp).testTag("split_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ContentCut,
-                    contentDescription = "Split at Playhead (Ctrl+B)",
-                    tint = DokPrimaryText,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+    var dragOffsetPx by remember(clip.id) { mutableFloatStateOf(0f) }
+    var dragStartUs by remember(clip.id, clip.startTimeUs) { mutableLongStateOf(clip.startTimeUs) }
 
-            // Ripple Delete
-            IconButton(
-                onClick = { onCommand(EditorCommand.RippleDeleteSelectedClip) },
-                enabled = hasSelection,
-                modifier = Modifier.size(36.dp).testTag("ripple_delete_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.DeleteSweep,
-                    contentDescription = "Ripple Delete",
-                    tint = if (hasSelection) DokWarning else DokSecondaryText.copy(alpha = 0.4f),
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-
-            // Lift Delete
-            IconButton(
-                onClick = { onCommand(EditorCommand.DeleteSelectedClip) },
-                enabled = hasSelection,
-                modifier = Modifier.size(36.dp).testTag("delete_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Lift Delete",
-                    tint = if (hasSelection) DokPrimaryText else DokSecondaryText.copy(alpha = 0.4f),
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(6.dp))
-
-            // Snapping toggle
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .background(
-                        if (isSnappingEnabled) DokAccent.copy(alpha = 0.2f) else Color.Transparent,
-                        RoundedCornerShape(4.dp)
-                    )
-                    .border(
-                        1.dp,
-                        if (isSnappingEnabled) DokAccent else DokDivider,
-                        RoundedCornerShape(4.dp)
-                    )
-                    .clickable { onCommand(EditorCommand.ToggleSnapping) }
-                    .testTag("snap_toggle_button"),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "SNAP",
-                    color = if (isSnappingEnabled) DokAccent else DokSecondaryText,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        // In/Out Marks & Undo / Redo & Zoom
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Mark In
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 2.dp)
-                    .clickable { onCommand(EditorCommand.SetInPoint(currentTimeUs)) }
-                    .background(DokDivider, RoundedCornerShape(3.dp))
-                    .padding(horizontal = 6.dp, vertical = 4.dp)
-                    .testTag("mark_in_button")
-            ) {
-                Text(text = "IN", color = DokPrimaryText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            }
-
-            // Mark Out
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 2.dp)
-                    .clickable { onCommand(EditorCommand.SetOutPoint(currentTimeUs)) }
-                    .background(DokDivider, RoundedCornerShape(3.dp))
-                    .padding(horizontal = 6.dp, vertical = 4.dp)
-                    .testTag("mark_out_button")
-            ) {
-                Text(text = "OUT", color = DokPrimaryText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(modifier = Modifier.width(6.dp))
-
-            // Undo
-            IconButton(
-                onClick = { onCommand(EditorCommand.Undo) },
-                enabled = canUndo,
-                modifier = Modifier.size(32.dp).testTag("undo_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Undo,
-                    contentDescription = "Undo (Ctrl+Z)",
-                    tint = if (canUndo) DokPrimaryText else DokSecondaryText.copy(alpha = 0.3f),
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-
-            // Redo
-            IconButton(
-                onClick = { onCommand(EditorCommand.Redo) },
-                enabled = canRedo,
-                modifier = Modifier.size(32.dp).testTag("redo_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Redo,
-                    contentDescription = "Redo (Ctrl+Y)",
-                    tint = if (canRedo) DokPrimaryText else DokSecondaryText.copy(alpha = 0.3f),
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(4.dp))
-
-            // Zoom Out
-            IconButton(
-                onClick = { onCommand(EditorCommand.ZoomTimeline(-0.25f)) },
-                modifier = Modifier.size(32.dp).testTag("zoom_out_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ZoomOut,
-                    contentDescription = "Zoom Out",
-                    tint = DokPrimaryText,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-
-            // Zoom In
-            IconButton(
-                onClick = { onCommand(EditorCommand.ZoomTimeline(0.25f)) },
-                modifier = Modifier.size(32.dp).testTag("zoom_in_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ZoomIn,
-                    contentDescription = "Zoom In",
-                    tint = DokPrimaryText,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun TrackHeadersColumn(
-    tracks: List<Track>,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .background(DokSurface)
-            .fillMaxHeight()
-    ) {
-        // Empty space for ruler height
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(28.dp)
-                .background(DokSurfaceElevated),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "TRACKS",
-                color = DokSecondaryText,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold
+    val visualX = with(density) { x.toPx() } + dragOffsetPx
+    Box(
+        Modifier
+            .offset { IntOffset(visualX.roundToInt(), 0) }
+            .width(width)
+            .height(58.dp)
+            .padding(vertical = 4.dp)
+            .background(
+                if (selected) DokAccent.copy(.32f)
+                else if (track.type == TrackType.VIDEO) Color(0xFF193E56) else Color(0xFF263F35),
+                RoundedCornerShape(4.dp)
             )
-        }
-
-        Divider(color = DokDivider, thickness = 1.dp)
-
-        tracks.forEach { track ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .padding(horizontal = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = track.name,
-                        color = when (track.type) {
-                            TrackType.VIDEO -> DokAccent
-                            TrackType.AUDIO -> Color(0xFF48BB78)
-                            TrackType.TEXT -> Color(0xFFB794F4)
-                        },
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "${track.clips.size} clips",
-                        color = DokSecondaryText,
-                        fontSize = 9.sp
-                    )
-                }
-
-                if (track.isMuted) {
-                    Icon(
-                        imageVector = Icons.Default.VolumeMute,
-                        contentDescription = "Muted",
-                        tint = DokWarning,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-            }
-            Divider(color = DokDivider, thickness = 1.dp)
-        }
-    }
-}
-
-@Composable
-fun TimelineRuler(
-    durationUs: Long,
-    pixelsPerSecond: Float,
-    inPointUs: Long?,
-    outPointUs: Long?,
-    currentTimeUs: Long,
-    onSeek: (Long) -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(28.dp)
-            .background(DokSurfaceElevated)
-            .pointerInput(durationUs) {
-                detectTapGestures { offset ->
-                    val seekUs = ((offset.x / (pixelsPerSecond * density)) * 1_000_000L).toLong()
-                    onSeek(seekUs)
-                }
-            }
-            .testTag("timeline_ruler")
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val totalSeconds = (durationUs / 1_000_000L).toInt() + 1
-            for (sec in 0..totalSeconds) {
-                val x = sec * pixelsPerSecond
-                val isMajor = sec % 5 == 0
-                val tickHeight = if (isMajor) size.height * 0.6f else size.height * 0.3f
-                drawLine(
-                    color = if (isMajor) Color.LightGray else Color.DarkGray,
-                    start = Offset(x, size.height - tickHeight),
-                    end = Offset(x, size.height),
-                    strokeWidth = 1f
+            .border(1.dp, if (selected) DokAccent else DokDivider, RoundedCornerShape(4.dp))
+            .pointerInput(clip.id, clip.startTimeUs, pps) {
+                detectDragGestures(
+                    onDragStart = {
+                        dragStartUs = clip.startTimeUs
+                        dragOffsetPx = 0f
+                        onSelect()
+                    },
+                    onDragCancel = { dragOffsetPx = 0f },
+                    onDragEnd = {
+                        val deltaUs = with(density) {
+                            dragOffsetPx.toDp().value / pps * 1_000_000L
+                        }.toLong()
+                        if (deltaUs != 0L) onMove((dragStartUs + deltaUs).coerceAtLeast(0L))
+                        dragOffsetPx = 0f
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        dragOffsetPx += dragAmount.x
+                    }
                 )
             }
-
-            // In / Out shading
-            if (inPointUs != null && outPointUs != null && outPointUs > inPointUs) {
-                val inX = (inPointUs / 1_000_000f) * pixelsPerSecond
-                val outX = (outPointUs / 1_000_000f) * pixelsPerSecond
-                drawRect(
-                    color = Color(0x334A9EFF),
-                    topLeft = Offset(inX, 0f),
-                    size = Size(outX - inX, size.height)
-                )
+            .clickable { onSelect() }
+            .testTag("clip_" + clip.id)
+    ) {
+        if (track.type == TrackType.VIDEO) ClipFrameThumbnail(clip)
+        if (track.type == TrackType.AUDIO && clip.waveform.isNotEmpty()) {
+            Canvas(Modifier.fillMaxSize().padding(horizontal = 2.dp, vertical = 8.dp)) {
+                val bars = clip.waveform
+                val step = size.width / bars.size.coerceAtLeast(1)
+                bars.forEachIndexed { i, amplitude ->
+                    val h = size.height * amplitude.coerceIn(.03f, 1f)
+                    drawLine(
+                        if (selected) DokAccent else Color(0xFF7AD69A),
+                        Offset(i * step, size.height / 2f - h / 2f),
+                        Offset(i * step, size.height / 2f + h / 2f),
+                        strokeWidth = max(1f, step * .55f)
+                    )
+                }
             }
         }
-    }
-}
-
-@Composable
-fun TrackRow(
-    track: Track,
-    selectedClipId: String?,
-    pixelsPerSecond: Float,
-    onSelectClip: (String) -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .background(DokBackground)
-    ) {
-        track.clips.forEach { clip ->
-            val clipStartDp = ((clip.startTimeUs / 1_000_000f) * pixelsPerSecond).dp
-            val clipWidthDp = ((clip.durationUs / 1_000_000f) * pixelsPerSecond).dp
-            val isSelected = clip.id == selectedClipId
-
-            ClipItem(
-                clip = clip,
-                trackType = track.type,
-                isSelected = isSelected,
-                modifier = Modifier
-                    .offset(x = clipStartDp)
-                    .width(clipWidthDp)
-                    .height(52.dp)
-                    .padding(vertical = 2.dp)
-                    .clickable { onSelectClip(clip.id) }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 7.dp, vertical = 4.dp)) {
+            Text(clip.mediaName.ifBlank { "Clip" }, color = Color.White, fontSize = 9.sp, maxLines = 1)
+            Text(EditorViewModelFormat(clip.durationUs, 30), color = Color.White.copy(.70f), fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+        }
+        if (clip.linkedClipId != null) {
+            Text("LINK", color = DokAccent, fontSize = 7.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp))
+        }
+        if (selected) {
+            var trimStartOffsetPx by remember(clip.id, clip.startTimeUs) { mutableFloatStateOf(0f) }
+            var trimEndOffsetPx by remember(clip.id, clip.endTimeUs) { mutableFloatStateOf(0f) }
+            Box(
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .width(7.dp)
+                    .fillMaxHeight()
+                    .background(DokAccent, RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp))
+                    .pointerInput(clip.id, clip.startTimeUs, pps) {
+                        detectDragGestures(
+                            onDragStart = { trimStartOffsetPx = 0f; onSelect() },
+                            onDragCancel = { trimStartOffsetPx = 0f },
+                            onDragEnd = {
+                                val deltaUs = with(density) { trimStartOffsetPx.toDp().value / pps * 1_000_000L }.toLong()
+                                if (deltaUs != 0L) onTrimStart((clip.startTimeUs + deltaUs).coerceAtLeast(0L))
+                                trimStartOffsetPx = 0f
+                            },
+                            onDrag = { change, drag ->
+                                change.consume()
+                                trimStartOffsetPx += drag.x
+                            }
+                        )
+                    }
+            )
+            Box(
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(7.dp)
+                    .fillMaxHeight()
+                    .background(DokAccent, RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+                    .pointerInput(clip.id, clip.endTimeUs, pps) {
+                        detectDragGestures(
+                            onDragStart = { trimEndOffsetPx = 0f; onSelect() },
+                            onDragCancel = { trimEndOffsetPx = 0f },
+                            onDragEnd = {
+                                val deltaUs = with(density) { trimEndOffsetPx.toDp().value / pps * 1_000_000L }.toLong()
+                                if (deltaUs != 0L) onTrimEnd((clip.endTimeUs + deltaUs).coerceAtLeast(0L))
+                                trimEndOffsetPx = 0f
+                            },
+                            onDrag = { change, drag ->
+                                change.consume()
+                                trimEndOffsetPx += drag.x
+                            }
+                        )
+                    }
             )
         }
     }
 }
 
 @Composable
-fun ClipItem(
-    clip: TimelineClip,
-    trackType: TrackType,
-    isSelected: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val baseColor = when (trackType) {
-        TrackType.VIDEO -> DokTrackVideo
-        TrackType.AUDIO -> DokTrackAudio
-        TrackType.TEXT -> Color(0xFF553C9A)
+private fun ClipFrameThumbnail(clip: TimelineClip) {
+    val context = LocalContext.current
+    val isImage = remember(clip.mediaUri) {
+        context.contentResolver.getType(Uri.parse(clip.mediaUri)).orEmpty().startsWith("image/")
     }
-
-    Box(
-        modifier = modifier
-            .background(baseColor, RoundedCornerShape(4.dp))
-            .border(
-                width = if (isSelected) 2.dp else 1.dp,
-                color = if (isSelected) Color.White else DokDivider,
-                shape = RoundedCornerShape(4.dp)
-            )
-            .padding(horizontal = 6.dp, vertical = 2.dp)
-            .testTag("clip_item_${clip.id}")
-    ) {
-        Column(
+    if (isImage) {
+        AsyncImage(
+            model = Uri.parse(clip.mediaUri),
+            contentDescription = null,
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = clip.mediaName.ifEmpty { "Clip" },
-                    color = DokPrimaryText,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-                if (clip.speed != 1.0f) {
-                    Text(
-                        text = "${clip.speed}x",
-                        color = DokWarning,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            alpha = .52f
+        )
+    } else {
+        val bitmap by produceState<Bitmap?>(initialValue = null, key1 = clip.mediaUri) {
+            value = withContext(Dispatchers.IO) {
+                try {
+                    val retriever = MediaMetadataRetriever()
+                    retriever.setDataSource(Uri.parse(clip.mediaUri), emptyMap<String, String>())
+                    val result = retriever.getFrameAtTime(
+                        clip.trimInUs.coerceAtLeast(0L),
+                        MediaMetadataRetriever.OPTION_CLOSEST_SYNC
                     )
-                }
+                    retriever.release()
+                    result
+                } catch (_: Throwable) { null }
             }
-
-            // Waveform or Thumbnail track indicator
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "${clip.durationUs / 1_000_000f}s",
-                    color = DokSecondaryText,
-                    fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-                if (clip.effects.isNotEmpty()) {
-                    Text(
-                        text = "FX (${clip.effects.size})",
-                        color = DokAccent,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
+        }
+        if (bitmap != null) {
+            Image(bitmap!!.asImageBitmap(), null, Modifier.fillMaxSize(), alpha = .42f)
         }
     }
 }
 
-@Composable
-fun Playhead(
-    offsetXDp: androidx.compose.ui.unit.Dp,
-    onDragSeek: (Float) -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .offset(x = offsetXDp - 6.dp)
-            .fillMaxHeight()
-            .width(12.dp)
-            .pointerInput(Unit) {
-                detectDragGestures { change, dragAmount ->
-                    change.consume()
-                    onDragSeek(dragAmount.x)
-                }
-            }
-            .testTag("playhead_handle")
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            // Diamond handle at top
-            val path = Path().apply {
-                moveTo(size.width / 2f, 0f)
-                lineTo(size.width, size.height * 0.05f)
-                lineTo(size.width / 2f, size.height * 0.1f)
-                lineTo(0f, size.height * 0.05f)
-                close()
-            }
-            drawPath(path, DokPlayhead)
-
-            // Red vertical playhead line
-            drawLine(
-                color = DokPlayhead,
-                start = Offset(size.width / 2f, size.height * 0.1f),
-                end = Offset(size.width / 2f, size.height),
-                strokeWidth = 2.dp.toPx()
-            )
-        }
-    }
+private fun EditorViewModelFormat(us: Long, fps: Int): String {
+    val safe = us.coerceAtLeast(0L)
+    val total = safe / 1_000_000L
+    val frames = ((safe % 1_000_000L) * fps / 1_000_000L).toInt()
+    return "%02d:%02d:%02d:%02d".format(total / 3600, (total % 3600) / 60, total % 60, frames)
 }

@@ -208,14 +208,35 @@ class PreviewPlayer(
 
                 for (inst in instructions) {
                     val decoder = getOrCreateAudioDecoder(inst.mediaUri) ?: continue
-                    val decoded = decoder.readFrames(inst.sourceStartFrame44k, inst.frameCount)
+                    val sourceFramesNeeded = kotlin.math.ceil(
+                        inst.frameCount.toDouble() * inst.speed.toDouble()
+                    ).toLong().coerceAtLeast(2L)
+                        .coerceAtMost(Int.MAX_VALUE.toLong()).toInt() + 2
+                    val decoded = decoder.readFrames(inst.sourceStartFrame44k, sourceFramesNeeded)
+                    val speedAdjusted = PcmMixer.resampleByAbsolutePosition(
+                        sourcePcm = decoded,
+                        sourceSampleRate = PcmMixer.SAMPLE_RATE_44K,
+                        absoluteOutputStartFrame = 0L,
+                        outputFrameCount = inst.frameCount,
+                        speed = inst.speed,
+                        targetSampleRate = PcmMixer.SAMPLE_RATE_44K
+                    )
 
-                    val gainL = inst.combinedLinearGain * inst.panGains.first * inst.fadeMultiplier
-                    val gainR = inst.combinedLinearGain * inst.panGains.second * inst.fadeMultiplier
+                    val gainL = inst.combinedLinearGain * inst.panGains.first
+                    val gainR = inst.combinedLinearGain * inst.panGains.second
 
                     for (i in 0 until minOf(inst.frameCount, chunkFrames)) {
-                        mixedBuffer[i * 2] += decoded[i * 2] * gainL
-                        mixedBuffer[i * 2 + 1] += decoded[i * 2 + 1] * gainR
+                        val timelineUs = (currentFrame44k + i).toLong() * 1_000_000L /
+                            PcmMixer.SAMPLE_RATE_44K
+                        val gain = PcmMixer.calculateFadeEnvelope(
+                            currentPositionUs = timelineUs,
+                            clipStartTimeUs = inst.clipStartTimeUs,
+                            clipDurationUs = inst.clipDurationUs,
+                            fadeInUs = inst.fadeInUs,
+                            fadeOutUs = inst.fadeOutUs
+                        )
+                        mixedBuffer[i * 2] += speedAdjusted[i * 2] * gainL * gain
+                        mixedBuffer[i * 2 + 1] += speedAdjusted[i * 2 + 1] * gainR * gain
                     }
                 }
 

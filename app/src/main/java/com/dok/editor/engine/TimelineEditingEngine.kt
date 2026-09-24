@@ -63,6 +63,54 @@ object TimelineEditingEngine {
         }
     }
 
+    fun splitLinkedClip(project: Project, clipId: String, splitTimeUs: Long): Project {
+        val clip = project.tracks.asSequence().flatMap { it.clips.asSequence() }.firstOrNull { it.id == clipId }
+            ?: return project
+        val linkedId = clip.linkedClipId ?: return splitClip(project, clipId, splitTimeUs)
+        val linked = project.tracks.asSequence().flatMap { it.clips.asSequence() }.firstOrNull { it.id == linkedId }
+            ?: return splitClip(project, clipId, splitTimeUs)
+
+        if (splitTimeUs <= clip.startTimeUs + MIN_CLIP_DURATION_US ||
+            splitTimeUs >= clip.endTimeUs - MIN_CLIP_DURATION_US ||
+            splitTimeUs <= linked.startTimeUs + MIN_CLIP_DURATION_US ||
+            splitTimeUs >= linked.endTimeUs - MIN_CLIP_DURATION_US
+        ) return project
+
+        val existingIds = project.tracks.flatMap { it.clips }.mapTo(HashSet()) { it.id }
+        var updated = splitClip(project, clip.id, splitTimeUs)
+        val afterVideoSplitIds = updated.tracks.flatMap { it.clips }.mapTo(HashSet()) { it.id }
+        updated = splitClip(updated, linked.id, splitTimeUs)
+        val newLinkedParts = updated.tracks.flatMap { it.clips }
+            .filter { !afterVideoSplitIds.contains(it.id) && it.trackId == linked.trackId }
+            .sortedBy { it.startTimeUs }
+        if (newLinkedParts.size != 2) return updated
+
+        val videoParts = updated.tracks.flatMap { it.clips }
+            .filter { !existingIds.contains(it.id) && it.trackId == clip.trackId }
+            .sortedBy { it.startTimeUs }
+        if (videoParts.size != 2) return updated
+
+        val leftVideo = videoParts.first()
+        val rightVideo = videoParts.last()
+        val leftAudio = newLinkedParts.first()
+        val rightAudio = newLinkedParts.last()
+
+        return updated.copy(
+            tracks = updated.tracks.map { track ->
+                track.copy(clips = track.clips.map { item ->
+                    when (item.id) {
+                        leftVideo.id -> item.copy(linkedClipId = leftAudio.id)
+                        rightVideo.id -> item.copy(linkedClipId = rightAudio.id)
+                        leftAudio.id -> item.copy(linkedClipId = leftVideo.id)
+                        rightAudio.id -> item.copy(linkedClipId = rightVideo.id)
+                        else -> item
+                    }
+                })
+            },
+            modifiedAtMs = System.currentTimeMillis()
+        )
+    }
+
     /**
      * Trims in or out point of a clip, updating timeline bounds accordingly.
      */

@@ -54,6 +54,10 @@ data class AudioMixInstruction(
     val combinedLinearGain: Float,
     val panGains: Pair<Float, Float>,
     val fadeMultiplier: Float,
+    val fadeInUs: Long,
+    val fadeOutUs: Long,
+    val clipStartTimeUs: Long,
+    val clipDurationUs: Long,
     val speed: Float
 )
 
@@ -195,16 +199,18 @@ object TimelineRenderPlan {
     fun evaluateAudioRange(
         project: Project,
         startFrame44k: Long,
-        frameCount: Int
+        frameCount: Int,
+        targetSampleRate: Int = PcmMixer.SAMPLE_RATE_44K
     ): List<AudioMixInstruction> {
         val instructions = ArrayList<AudioMixInstruction>()
-        val startUs = (startFrame44k * 1_000_000L) / PcmMixer.SAMPLE_RATE_44K
-        val durationUs = (frameCount.toLong() * 1_000_000L) / PcmMixer.SAMPLE_RATE_44K
+        val startUs = (startFrame44k * 1_000_000L) / targetSampleRate
+        val durationUs = (frameCount.toLong() * 1_000_000L) / targetSampleRate
         val endUs = startUs + durationUs
 
         val hasSoloTrack = project.tracks.any { it.isSolo }
 
         for (track in project.tracks) {
+            if (track.type != TrackType.AUDIO) continue
             if (track.isMuted) continue
             if (hasSoloTrack && !track.isSolo) continue
 
@@ -243,6 +249,10 @@ object TimelineRenderPlan {
                             combinedLinearGain = trackGain * clipGain,
                             panGains = combinedPan,
                             fadeMultiplier = fadeGain,
+                            fadeInUs = clip.fadeInUs,
+                            fadeOutUs = clip.fadeOutUs,
+                            clipStartTimeUs = clip.startTimeUs,
+                            clipDurationUs = clip.durationUs,
                             speed = clip.speed
                         )
                     )

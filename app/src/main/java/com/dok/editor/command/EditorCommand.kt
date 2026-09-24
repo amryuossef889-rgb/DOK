@@ -11,54 +11,42 @@ sealed interface EditorCommand {
     object Play : EditorCommand
     object Pause : EditorCommand
     object Stop : EditorCommand
-    
-    // Shuttle controls (J / K / L)
     object ShuttleReverse : EditorCommand
     object ShuttleForward : EditorCommand
     object ShuttleStop : EditorCommand
     data class StepFrames(val frames: Int) : EditorCommand
-    
-    // Playhead positioning
     data class ScrubTo(val timeUs: Long) : EditorCommand
     object JumpToStart : EditorCommand
     object JumpToEnd : EditorCommand
-    
-    // In / Out markers
     data class SetInPoint(val timeUs: Long) : EditorCommand
     data class SetOutPoint(val timeUs: Long) : EditorCommand
     object ClearInOutPoints : EditorCommand
-    
-    // Editing operations
     object SplitClipAtPlayhead : EditorCommand
     object DeleteSelectedClip : EditorCommand
     object RippleDeleteSelectedClip : EditorCommand
     data class SelectClip(val clipId: String?) : EditorCommand
     data class SelectTrack(val trackId: String?) : EditorCommand
-    
-    // Trim & Move
     data class TrimClipStart(val clipId: String, val newStartTimeUs: Long) : EditorCommand
     data class TrimClipEnd(val clipId: String, val newEndTimeUs: Long) : EditorCommand
     data class MoveClip(val clipId: String, val newStartTimeUs: Long, val targetTrackId: String? = null) : EditorCommand
+    data class MoveSelectedClip(val deltaUs: Long) : EditorCommand
     data class ChangeClipSpeed(val clipId: String, val speed: Float) : EditorCommand
-    
-    // Properties & Inspector
     data class UpdateClipTransform(val clipId: String, val transform: Transform2D) : EditorCommand
+    data class UpdateClipAudio(val clipId: String, val volumeDb: Float, val pan: Float) : EditorCommand
     data class UpdateColorGrading(val clipId: String, val colorParams: ColorGradingParams) : EditorCommand
     data class AddParametricEffect(val clipId: String, val effect: Effect.ParametricEffect) : EditorCommand
     data class RemoveEffect(val clipId: String, val effectId: String) : EditorCommand
     data class SetClipTransitionIn(val clipId: String, val transition: TransitionConfig?) : EditorCommand
     data class SetClipTransitionOut(val clipId: String, val transition: TransitionConfig?) : EditorCommand
-    
-    // Undo / Redo
     object Undo : EditorCommand
     object Redo : EditorCommand
-    
-    // Snapping & Timeline View
     object ToggleSnapping : EditorCommand
     data class ZoomTimeline(val delta: Float) : EditorCommand
     object ZoomToFit : EditorCommand
-    
-    // Import & Deliver
     data class ImportMediaClip(val uri: String, val name: String, val durationUs: Long) : EditorCommand
+    data class AddMediaAssetToTimeline(val assetId: String, val startTimeUs: Long? = null, val targetTrackId: String? = null) : EditorCommand
+    data class ApplyExternalEffectAsset(val assetId: String, val targetTimeUs: Long? = null) : EditorCommand
+    data class InsertSoundEffectAsset(val assetId: String, val startTimeUs: Long) : EditorCommand
     data class RequestExport(val preset: ExportPreset) : EditorCommand
+    data class SetProjectSettings(val width: Int, val height: Int, val fps: Int) : EditorCommand
 }

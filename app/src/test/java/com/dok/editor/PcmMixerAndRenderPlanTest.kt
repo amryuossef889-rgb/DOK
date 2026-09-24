@@ -1,7 +1,15 @@
 package com.dok.editor
 
 import com.dok.editor.engine.audio.PcmMixer
+import com.dok.editor.engine.nodes.NodeGraphExecutor
+import com.dok.editor.engine.nodes.NodeFrame
+import com.dok.editor.engine.nodes.NodeOperator
+import com.dok.editor.model.Node
+import com.dok.editor.model.NodeConnection
+import com.dok.editor.model.NodeGraph
 import com.dok.editor.engine.plan.TimelineRenderPlan
+import com.dok.editor.engine.subtitle.SrtSubtitleCodec
+import com.dok.editor.engine.subtitle.SubtitleCue
 import com.dok.editor.model.InterpolationType
 import com.dok.editor.model.Keyframe
 import com.dok.editor.model.KeyframeProperty
@@ -172,4 +180,75 @@ class PcmMixerAndRenderPlanTest {
         assertEquals(1, planAt2s.textInstructions.size)
         assertEquals("KILL FEED", planAt2s.textInstructions[0].text)
     }
+    @Test
+    fun testAudioPlanUsesRequestedSampleRateAndClipFadeMetadata() {
+        val clip = TimelineClip(
+            id = "a1",
+            trackId = "audio",
+            mediaUri = "content://test/audio",
+            startTimeUs = 1_000_000L,
+            durationUs = 4_000_000L,
+            trimInUs = 0L,
+            trimOutUs = 4_000_000L,
+            fadeInUs = 500_000L,
+            fadeOutUs = 750_000L,
+            speed = 1.25f
+        )
+        val project = Project(
+            tracks = listOf(
+                Track(id = "audio", name = "A1", type = TrackType.AUDIO, clips = listOf(clip))
+            )
+        )
+
+        val plan = TimelineRenderPlan.evaluateAudioRange(
+            project = project,
+            startFrame44k = 48_000L,
+            frameCount = 960,
+            targetSampleRate = 48_000
+        )
+
+        assertEquals(1, plan.size)
+        assertEquals(1_000_000L, plan[0].clipStartTimeUs)
+        assertEquals(4_000_000L, plan[0].clipDurationUs)
+        assertEquals(500_000L, plan[0].fadeInUs)
+        assertEquals(750_000L, plan[0].fadeOutUs)
+        assertEquals(1.25f, plan[0].speed, 0.0001f)
+    }
+
+    @Test
+    fun testNodeGraphRejectsCycles() {
+        val a = Node(id = "a", type = "pass")
+        val b = Node(id = "b", type = "pass")
+        val graph = NodeGraph(
+            nodes = listOf(a, b),
+            connections = listOf(
+                NodeConnection("a", "out", "b", "in"),
+                NodeConnection("b", "out", "a", "in")
+            )
+        )
+        val frame = NodeFrame(FloatArray(4), 1, 1)
+        val executor = NodeGraphExecutor(mapOf("pass" to NodeOperator { _, _ -> frame }))
+        try {
+            executor.execute(graph, frame)
+            throw AssertionError("Expected cycle rejection")
+        } catch (expected: IllegalArgumentException) {
+            assertTrue(expected.message!!.contains("cycle"))
+        }
+    }
+
+    @Test
+    fun testSrtRoundTrip() {
+        val cues = listOf(
+            SubtitleCue(1, 1_250_000L, 2_500_000L, "Hello\\nWorld"),
+            SubtitleCue(2, 3_000_000L, 4_125_000L, "Second")
+        )
+        val encoded = SrtSubtitleCodec.write(cues)
+        val decoded = SrtSubtitleCodec.parse(encoded)
+        assertEquals(cues[0].text, decoded[0].text)
+        assertEquals(cues[0].startTimeUs, decoded[0].startTimeUs)
+        assertEquals(cues[0].endTimeUs, decoded[0].endTimeUs)
+        assertEquals(cues[1].startTimeUs, decoded[1].startTimeUs)
+        assertEquals(cues[1].endTimeUs, decoded[1].endTimeUs)
+    }
+
 }

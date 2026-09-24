@@ -12,9 +12,9 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import com.dok.editor.engine.audio.PcmMixer
+import com.dok.editor.engine.gpu.EglVideoCompositor
 import com.dok.editor.engine.audio.StreamingAudioDecoder
 import com.dok.editor.engine.plan.TimelineRenderPlan
-import com.dok.editor.engine.video.SequentialVideoDecoder
 import com.dok.editor.model.Project
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
@@ -54,11 +54,17 @@ class ExportPipeline(
         var audioEncoder: MediaCodec? = null
 
         val audioDecoders = HashMap<String, StreamingAudioDecoder>()
-        val videoDecoders = HashMap<String, SequentialVideoDecoder>()
+        var compositor: EglVideoCompositor? = null
 
         try {
-            val totalDurationUs = maxOf(1_000_000L, project.totalDurationUs) // at least 1s
-            val totalFrames = ((totalDurationUs.toDouble() / 1_000_000.0) * preset.fps).toLong().coerceAtLeast(1L)
+            if (project.totalDurationUs <= 0L) {
+                throw IllegalStateException("Cannot export an empty timeline")
+            }
+            val totalDurationUs = project.totalDurationUs
+            require(preset.width > 0 && preset.height > 0) { "Export dimensions must be positive" }
+            require(preset.fps > 0) { "Export FPS must be positive" }
+            require(preset.audioSampleRate > 0) { "Export audio sample rate must be positive" }
+            val totalFrames = kotlin.math.ceil((totalDurationUs.toDouble() / 1_000_000.0) * preset.fps).toLong().coerceAtLeast(1L)
 
             // Setup Video Encoder
             val videoFormat = MediaFormat.createVideoFormat(VIDEO_MIME, preset.width, preset.height).apply {
@@ -71,6 +77,7 @@ class ExportPipeline(
             videoEncoder.configure(videoFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             val inputSurface = videoEncoder.createInputSurface()
             videoEncoder.start()
+            compositor = EglVideoCompositor(context, inputSurface, preset.width, preset.height)
 
             // Setup Audio Encoder
             val audioFormat = MediaFormat.createAudioFormat(AUDIO_MIME, preset.audioSampleRate, 2).apply {
@@ -106,7 +113,13 @@ class ExportPipeline(
             fun writeOrQueueSample(isVideo: Boolean, byteBuf: ByteBuffer, info: MediaCodec.BufferInfo) {
                 if (muxerStarted) {
                     val track = if (isVideo) videoTrackIndex else audioTrackIndex
-                    muxer.writeSampleData(track, byteBuf, info)
+                    val start = info.offset.coerceIn(0, byteBuf.capacity())
+                    val end = (start + info.size).coerceAtMost(byteBuf.capacity())
+                    if (end > start) {
+                        byteBuf.position(start)
+                        byteBuf.limit(end)
+                        muxer.writeSampleData(track, byteBuf, info)
+                    }
                 } else {
                     // Critical rule: Buffer pending samples until all track formats are known
                     val bytes = ByteArray(info.size)
@@ -131,20 +144,22 @@ class ExportPipeline(
                 if (!coroutineContext.isActive) break
                 val frameTimeUs = (frameIdx * 1_000_000L) / preset.fps
 
-                // Use the exact same TimelineRenderPlan as Preview
+                // Shared render plan drives a real GPU composition pass.
                 val plan = TimelineRenderPlan.evaluateVideoAt(project, frameTimeUs)
+                val gpu = compositor ?: error("GPU compositor unavailable")
+                gpu.beginFrame()
                 for (frameInst in plan.frameInstructions) {
-                    val decoder = videoDecoders.getOrPut(frameInst.mediaUri) {
-                        SequentialVideoDecoder(context, Uri.parse(frameInst.mediaUri), inputSurface)
-                    }
-                    decoder.decodeFrameToPts(frameInst.mediaSourceTimeUs)
+                    gpu.renderLayer(frameInst.clipId, Uri.parse(frameInst.mediaUri), frameInst)
                 }
+                gpu.endFrame(frameTimeUs)
 
                 // Drain video encoder
                 var outIdx = videoEncoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_US)
                 while (outIdx >= 0) {
                     val outBuf = videoEncoder.getOutputBuffer(outIdx)
                     if (outBuf != null && (bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0 && bufferInfo.size > 0) {
+                        outBuf.position(bufferInfo.offset)
+                        outBuf.limit((bufferInfo.offset + bufferInfo.size).coerceAtMost(outBuf.capacity()))
                         // Critical rule: derive PTS from output frame counter, not input index!
                         val ptsUs = (videoOutputFrames * 1_000_000L) / preset.fps
                         videoOutputFrames++
@@ -196,7 +211,7 @@ class ExportPipeline(
             }
 
             // Encode Audio
-            val totalAudioFrames = ((totalDurationUs.toDouble() / 1_000_000.0) * preset.audioSampleRate).toLong()
+            val totalAudioFrames = ((totalDurationUs.toDouble() / 1_000_000.0) * preset.audioSampleRate).toLong().coerceAtLeast(1L)
             val chunkFrames = 2048
             var audioFrameCursor = 0L
             var audioOutputFrameCounter = 0L
@@ -205,26 +220,61 @@ class ExportPipeline(
 
             while (audioFrameCursor < totalAudioFrames && coroutineContext.isActive) {
                 val framesThisChunk = minOf(chunkFrames.toLong(), totalAudioFrames - audioFrameCursor).toInt()
-                val instructions = TimelineRenderPlan.evaluateAudioRange(project, audioFrameCursor, framesThisChunk)
+                val instructions = TimelineRenderPlan.evaluateAudioRange(
+                    project,
+                    audioFrameCursor,
+                    framesThisChunk,
+                    preset.audioSampleRate
+                )
 
                 val mixed = FloatArray(framesThisChunk * 2)
                 for (inst in instructions) {
                     val dec = audioDecoders.getOrPut(inst.mediaUri) {
                         StreamingAudioDecoder(context, Uri.parse(inst.mediaUri))
                     }
-                    val decoded = dec.readFrames(inst.sourceStartFrame44k, inst.frameCount)
-                    val gL = inst.combinedLinearGain * inst.panGains.first * inst.fadeMultiplier
-                    val gR = inst.combinedLinearGain * inst.panGains.second * inst.fadeMultiplier
+                    val sourceFramesNeeded = kotlin.math.ceil(
+                        inst.frameCount.toDouble() *
+                            inst.speed.toDouble() *
+                            PcmMixer.SAMPLE_RATE_44K.toDouble() /
+                            preset.audioSampleRate.toDouble()
+                    ).toLong().coerceAtLeast(2L)
+                        .coerceAtMost(Int.MAX_VALUE.toLong()).toInt() + 2
+                    val decoded = dec.readFrames(inst.sourceStartFrame44k, sourceFramesNeeded)
+                    val speedAdjusted = PcmMixer.resampleByAbsolutePosition(
+                        sourcePcm = decoded,
+                        sourceSampleRate = PcmMixer.SAMPLE_RATE_44K,
+                        absoluteOutputStartFrame = 0L,
+                        outputFrameCount = inst.frameCount,
+                        speed = inst.speed,
+                        targetSampleRate = preset.audioSampleRate
+                    )
+                    val gL = inst.combinedLinearGain * inst.panGains.first
+                    val gR = inst.combinedLinearGain * inst.panGains.second
                     for (k in 0 until minOf(inst.frameCount, framesThisChunk)) {
-                        mixed[k * 2] += decoded[k * 2] * gL
-                        mixed[k * 2 + 1] += decoded[k * 2 + 1] * gR
+                        val timelineUs = (audioFrameCursor + k).toLong() * 1_000_000L /
+                            preset.audioSampleRate
+                        val gain = PcmMixer.calculateFadeEnvelope(
+                            currentPositionUs = timelineUs,
+                            clipStartTimeUs = inst.clipStartTimeUs,
+                            clipDurationUs = inst.clipDurationUs,
+                            fadeInUs = inst.fadeInUs,
+                            fadeOutUs = inst.fadeOutUs
+                        )
+                        mixed[k * 2] += speedAdjusted[k * 2] * gL * gain
+                        mixed[k * 2 + 1] += speedAdjusted[k * 2 + 1] * gR * gain
                     }
                 }
                 PcmMixer.applySoftKneeLimiter(mixed)
                 val pcm16 = PcmMixer.floatToPcm16(mixed)
 
-                // Feed audio encoder
-                val inIdx = audioEncoder.dequeueInputBuffer(TIMEOUT_US)
+                // Feed audio encoder without dropping chunks when its input queue is temporarily full.
+                var inIdx = audioEncoder.dequeueInputBuffer(TIMEOUT_US)
+                var inputWaits = 0
+                while (inIdx < 0 && inputWaits < 50 && coroutineContext.isActive) {
+                    kotlinx.coroutines.delay(2L)
+                    inIdx = audioEncoder.dequeueInputBuffer(TIMEOUT_US)
+                    inputWaits++
+                }
                 if (inIdx >= 0) {
                     val inBuf = audioEncoder.getInputBuffer(inIdx)
                     if (inBuf != null) {
@@ -237,6 +287,8 @@ class ExportPipeline(
                         val flags = if (isLast) MediaCodec.BUFFER_FLAG_END_OF_STREAM else 0
                         audioEncoder.queueInputBuffer(inIdx, 0, bytesSize, ptsUs, flags)
                     }
+                } else {
+                    throw IllegalStateException("Audio encoder input stalled")
                 }
 
                 // Drain audio encoder
@@ -244,6 +296,8 @@ class ExportPipeline(
                 while (aOutIdx >= 0) {
                     val aOutBuf = audioEncoder.getOutputBuffer(aOutIdx)
                     if (aOutBuf != null && (audioBufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0 && audioBufferInfo.size > 0) {
+                        aOutBuf.position(audioBufferInfo.offset)
+                        aOutBuf.limit((audioBufferInfo.offset + audioBufferInfo.size).coerceAtMost(aOutBuf.capacity()))
                         writeOrQueueSample(false, aOutBuf, audioBufferInfo)
                     }
                     audioEncoder.releaseOutputBuffer(aOutIdx, false)
@@ -284,7 +338,8 @@ class ExportPipeline(
             }
 
             // Close decoders and encoders
-            videoDecoders.values.forEach { it.close() }
+            compositor?.close()
+            compositor = null
             audioDecoders.values.forEach { it.close() }
 
             try { videoEncoder.stop(); videoEncoder.release() } catch (_: Exception) {}
@@ -303,6 +358,8 @@ class ExportPipeline(
             Log.e(TAG, "Export failed", t)
             withContext(Dispatchers.Main) { onError(t) }
         } finally {
+            runCatching { compositor?.close() }
+            compositor = null
             if (tempOutputFile.exists()) {
                 tempOutputFile.delete()
             }
