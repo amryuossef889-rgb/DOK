@@ -188,17 +188,18 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         val audioClip = audioTrack?.let { track ->
             TimelineClip(trackId = track.id, mediaUri = uriString, mediaName = fallbackName + " • Audio", startTimeUs = startTime, durationUs = duration, sourceDurationUs = duration, linkedClipId = videoClip.id)
         }
+        val linkedVideoClip = videoClip.copy(linkedClipId = audioClip?.id)
         commit(_project.value.copy(
             tracks = _project.value.tracks.map { track ->
                 when {
-                    track.id == videoTrack.id -> track.copy(clips = track.clips + videoClip)
+                    track.id == videoTrack.id -> track.copy(clips = track.clips + linkedVideoClip)
                     audioClip != null && track.id == audioClip.trackId -> track.copy(clips = track.clips + audioClip)
                     else -> track
                 }
             },
             modifiedAtMs = System.currentTimeMillis()
         ))
-        _selectedClipId.value = videoClip.id
+        _selectedClipId.value = linkedVideoClip.id
         seek(startTime)
         if (audioClip != null) viewModelScope.launch {
             val waveform = AudioWaveformExtractor.extract(getApplication(), uri, 180)
@@ -206,7 +207,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 val current = _project.value
                 _project.value = current.copy(
                     tracks = current.tracks.map { track -> track.copy(clips = track.clips.map { clip ->
-                        if (clip.id == videoClip.id || clip.id == audioClip.id) clip.copy(waveform = waveform) else clip
+                        if (clip.id == linkedVideoClip.id || clip.id == audioClip.id) clip.copy(waveform = waveform) else clip
                     }) },
                     modifiedAtMs = System.currentTimeMillis()
                 )
