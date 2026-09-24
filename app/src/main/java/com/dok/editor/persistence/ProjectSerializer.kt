@@ -8,6 +8,7 @@ import com.dok.editor.model.Keyframe
 import com.dok.editor.model.KeyframeProperty
 import com.dok.editor.model.Project
 import com.dok.editor.model.MediaAsset
+import com.dok.editor.model.ExternalEffectAsset
 import com.dok.editor.model.TextOverlayConfig
 import com.dok.editor.model.TimelineClip
 import com.dok.editor.model.Track
@@ -24,7 +25,7 @@ import java.nio.charset.StandardCharsets
 
 object ProjectSerializer {
 
-    const val CURRENT_SCHEMA_VERSION = 1
+    const val CURRENT_SCHEMA_VERSION = 2
 
     fun serializeToJson(project: Project): String {
         val root = JSONObject()
@@ -169,6 +170,14 @@ object ProjectSerializer {
             })
         }
         root.put("mediaPool", mediaPoolArray)
+        val effectsArray = JSONArray()
+        project.effectLibrary.forEach { asset ->
+            effectsArray.put(JSONObject().apply {
+                put("id", asset.id); put("name", asset.name); put("uri", asset.uri)
+                put("kind", asset.kind); put("mimeType", asset.mimeType); put("metadataJson", asset.metadataJson)
+            })
+        }
+        root.put("effectLibrary", effectsArray)
         return root.toString(2)
     }
 
@@ -212,6 +221,13 @@ object ProjectSerializer {
                     proxyUri = o.optString("proxyUri").ifBlank { null }
                 )
             )
+        }
+
+        val effectLibrary = ArrayList<ExternalEffectAsset>()
+        val effectArray = migratedRoot.optJSONArray("effectLibrary") ?: JSONArray()
+        for (i in 0 until effectArray.length()) {
+            val o = effectArray.getJSONObject(i)
+            effectLibrary.add(ExternalEffectAsset(o.optString("id"), o.optString("name"), o.optString("uri"), o.optString("kind", "effect"), o.optString("mimeType"), o.optString("metadataJson")))
         }
 
         val tracksArray = migratedRoot.optJSONArray("tracks") ?: JSONArray()
@@ -412,6 +428,7 @@ object ProjectSerializer {
             schemaVersion = CURRENT_SCHEMA_VERSION,
             tracks = tracks,
             mediaPool = mediaPool,
+            effectLibrary = effectLibrary,
             createdAtMs = createdAtMs,
             modifiedAtMs = modifiedAtMs
         )
@@ -423,6 +440,7 @@ object ProjectSerializer {
         while (v < targetVersion) {
             current = when (v) {
                 0 -> migrateV0ToV1(current)
+                1 -> migrateV1ToV2(current)
                 else -> current
             }
             v++
@@ -468,6 +486,12 @@ object ProjectSerializer {
             }
         }
         return v1
+    }
+
+    private fun migrateV1ToV2(v1: JSONObject): JSONObject {
+        val v2 = JSONObject(v1.toString())
+        if (!v2.has("effectLibrary")) v2.put("effectLibrary", JSONArray())
+        return v2
     }
 
     /**
