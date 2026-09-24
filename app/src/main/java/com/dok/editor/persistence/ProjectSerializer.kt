@@ -7,6 +7,7 @@ import com.dok.editor.model.InterpolationType
 import com.dok.editor.model.Keyframe
 import com.dok.editor.model.KeyframeProperty
 import com.dok.editor.model.Project
+import com.dok.editor.model.MediaAsset
 import com.dok.editor.model.TextOverlayConfig
 import com.dok.editor.model.TimelineClip
 import com.dok.editor.model.Track
@@ -151,6 +152,18 @@ object ProjectSerializer {
             tracksArray.put(trackObj)
         }
         root.put("tracks", tracksArray)
+
+        val mediaPoolArray = JSONArray()
+        project.mediaPool.forEach { asset ->
+            mediaPoolArray.put(JSONObject().apply {
+                put("id", asset.id); put("uri", asset.uri); put("name", asset.name)
+                put("durationUs", asset.durationUs); put("width", asset.width); put("height", asset.height)
+                put("fps", asset.fps.toDouble()); put("sampleRate", asset.sampleRate); put("channels", asset.channels)
+                put("codec", asset.codec); put("sizeBytes", asset.sizeBytes); put("isOffline", asset.isOffline)
+                put("proxyUri", asset.proxyUri ?: "")
+            })
+        }
+        root.put("mediaPool", mediaPoolArray)
         return root.toString(2)
     }
 
@@ -172,6 +185,29 @@ object ProjectSerializer {
         val fps = migratedRoot.optInt("fps", 30)
         val createdAtMs = migratedRoot.optLong("createdAtMs", System.currentTimeMillis())
         val modifiedAtMs = migratedRoot.optLong("modifiedAtMs", System.currentTimeMillis())
+
+        val mediaPool = ArrayList<MediaAsset>()
+        val mediaPoolArray = migratedRoot.optJSONArray("mediaPool") ?: JSONArray()
+        for (i in 0 until mediaPoolArray.length()) {
+            val o = mediaPoolArray.getJSONObject(i)
+            mediaPool.add(
+                MediaAsset(
+                    id = o.optString("id"),
+                    uri = o.optString("uri"),
+                    name = o.optString("name"),
+                    durationUs = o.optLong("durationUs"),
+                    width = o.optInt("width"),
+                    height = o.optInt("height"),
+                    fps = o.optDouble("fps").toFloat(),
+                    sampleRate = o.optInt("sampleRate"),
+                    channels = o.optInt("channels"),
+                    codec = o.optString("codec"),
+                    sizeBytes = o.optLong("sizeBytes"),
+                    isOffline = o.optBoolean("isOffline"),
+                    proxyUri = o.optString("proxyUri").ifBlank { null }
+                )
+            )
+        }
 
         val tracksArray = migratedRoot.optJSONArray("tracks") ?: JSONArray()
         val tracks = ArrayList<Track>()
@@ -296,6 +332,11 @@ object ProjectSerializer {
                     )
                 }
 
+                val linkedClipId = clipObj.optString("linkedClipId").ifBlank { null }
+                val waveform = clipObj.optJSONArray("waveform")?.let { array ->
+                    List(array.length()) { index -> array.optDouble(index).toFloat() }
+                } ?: emptyList()
+
                 // Text Overlay
                 val txtObj = clipObj.optJSONObject("textOverlay")
                 val textOverlay = txtObj?.let {
@@ -335,7 +376,9 @@ object ProjectSerializer {
                         effects = effects,
                         transitionIn = transitionIn,
                         transitionOut = transitionOut,
-                        textOverlay = textOverlay
+                        textOverlay = textOverlay,
+                        linkedClipId = linkedClipId,
+                        waveform = waveform
                     )
                 )
             }
@@ -363,6 +406,7 @@ object ProjectSerializer {
             fps = fps,
             schemaVersion = CURRENT_SCHEMA_VERSION,
             tracks = tracks,
+            mediaPool = mediaPool,
             createdAtMs = createdAtMs,
             modifiedAtMs = modifiedAtMs
         )
