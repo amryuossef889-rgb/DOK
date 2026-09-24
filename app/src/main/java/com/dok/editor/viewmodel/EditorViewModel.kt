@@ -12,6 +12,9 @@ import com.dok.editor.engine.export.ExportPipeline
 import com.dok.editor.engine.export.ExportPreset
 import com.dok.editor.history.UndoRedoManager
 import com.dok.editor.model.*
+import com.dok.editor.persistence.ProjectSerializer
+import java.io.File
+import org.json.JSONObject
 import com.dok.editor.media.MediaPool
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -469,6 +472,31 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             mediaPool = mediaPool
         )
     }
+    fun applyExternalEffectAsset(asset: ExternalEffectAsset) {
+        val clipId = _selectedClipId.value ?: return
+        val path = Uri.parse(asset.uri).path ?: return
+        val file = File(path)
+        when {
+            asset.kind == "lut" || asset.name.endsWith(".cube", ignoreCase = true) -> {
+                updateClip(clipId) { clip ->
+                    clip.copy(colorParams = clip.colorParams.copy(lutCubeUri = file.toURI().toString()))
+                }
+            }
+            asset.kind == "preset" || asset.name.endsWith(".json", ignoreCase = true) -> {
+                runCatching {
+                    val o = JSONObject(file.readText())
+                    val type = EffectType.valueOf(o.optString("effectType"))
+                    val params = mutableMapOf<String, Float>()
+                    o.optJSONObject("parameters")?.keys()?.forEach { key -> params[key] = o.getDouble("parameters").toFloat() }
+                    dispatch(EditorCommand.AddParametricEffect(
+                        clipId,
+                        Effect.ParametricEffect(effectType = type, intensity = o.optDouble("intensity", 1.0).toFloat(), params = params)
+                    ))
+                }
+            }
+        }
+    }
+
     fun addExternalEffectAsset(asset: com.dok.editor.model.ExternalEffectAsset) {
         commit { project ->
             if (project.effectLibrary.any { it.id == asset.id }) project
