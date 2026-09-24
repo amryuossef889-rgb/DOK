@@ -12,6 +12,7 @@ import com.dok.editor.engine.export.ExportPipeline
 import com.dok.editor.engine.export.ExportPreset
 import com.dok.editor.history.UndoRedoManager
 import com.dok.editor.model.*
+import com.dok.editor.media.MediaPool
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,9 @@ enum class ExportUiState { IDLE, EXPORTING, SUCCESS, ERROR }
 
 class EditorViewModel(application: Application) : AndroidViewModel(application) {
     private val history = UndoRedoManager(50)
+    private val mediaPool = MediaPool(application)
+    private val _mediaAssets = MutableStateFlow(mediaPool.all())
+    val mediaAssets: StateFlow<List<MediaAsset>> = _mediaAssets.asStateFlow()
     private val _project = MutableStateFlow(createEmptyProject())
     val project: StateFlow<Project> = _project.asStateFlow()
     private val _currentTimeUs = MutableStateFlow(0L)
@@ -114,6 +118,9 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             is EditorCommand.ZoomTimeline -> _zoomLevel.value = (_zoomLevel.value + command.delta).coerceIn(.25f, 8f)
             EditorCommand.ZoomToFit -> _zoomLevel.value = 1f
             is EditorCommand.ImportMediaClip -> importMedia(command.uri, command.name, command.durationUs)
+            is EditorCommand.AddMediaAssetToTimeline -> mediaPool.find(command.assetId)?.let { asset ->
+                importMedia(asset.uri, asset.name, asset.durationUs)
+            }
             is EditorCommand.RequestExport -> { _selectedExportPreset.value = command.preset; startExport(command.preset) }
             is EditorCommand.SetProjectSettings -> {
                 val w = command.width.coerceIn(144, 7680); val h = command.height.coerceIn(144, 7680); val fps = command.fps.coerceIn(1, 240)
@@ -207,6 +214,30 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             val isImage = mime.startsWith("image/")
             val isVideo = info.isVideo || isImage
             val isAudio = info.isAudio
+
+            val asset = mediaPool.findByUri(uriString)?.copy(
+                name = fallbackName,
+                durationUs = durationOrFallback(info.durationUs, fallbackDurationUs),
+                width = info.width,
+                height = info.height,
+                fps = info.fps.toFloat(),
+                sampleRate = info.audioSampleRate,
+                channels = info.audioChannels,
+                codec = info.videoMime ?: info.audioMime ?: "",
+                isOffline = false
+            ) ?: MediaAsset(
+                uri = uriString,
+                name = fallbackName,
+                durationUs = durationOrFallback(info.durationUs, fallbackDurationUs),
+                width = info.width,
+                height = info.height,
+                fps = info.fps.toFloat(),
+                sampleRate = info.audioSampleRate,
+                channels = info.audioChannels,
+                codec = info.videoMime ?: info.audioMime ?: ""
+            )
+            mediaPool.upsert(asset)
+            _mediaAssets.value = mediaPool.all()
 
             val duration = when {
                 isImage -> 5_000_000L
@@ -304,6 +335,9 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
     }
+
+    private fun durationOrFallback(actualUs: Long, fallbackUs: Long): Long =
+        actualUs.takeIf { it > 0L } ?: fallbackUs.coerceAtLeast(1_000_000L)
 
     private fun startExport(preset: ExportPreset) {
         exportJob?.cancel()
