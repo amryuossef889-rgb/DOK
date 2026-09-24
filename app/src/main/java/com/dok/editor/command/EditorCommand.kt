@@ -44,6 +44,7 @@ sealed interface EditorCommand {
     data class ZoomTimeline(val delta: Float) : EditorCommand
     object ZoomToFit : EditorCommand
     data class ImportMediaClip(val uri: String, val name: String, val durationUs: Long) : EditorCommand
+    data class AddMediaAssetToTimeline(val assetId: String, val startTimeUs: Long? = null) : EditorCommand
     data class RequestExport(val preset: ExportPreset) : EditorCommand
     data class SetProjectSettings(val width: Int, val height: Int, val fps: Int) : EditorCommand
 }
